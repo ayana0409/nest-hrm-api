@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete, Query } from '@nestjs/common';
 import { DepartmentService } from './department.service';
 import { CreateDepartmentDto } from './dto/create-department.dto';
 import { UpdateDepartmentDto } from './dto/update-department.dto';
@@ -12,23 +12,26 @@ export class DepartmentController {
     return this.departmentService.create(createDepartmentDto);
   }
 
-  @Get()
-  findAll() {
-    return this.departmentService.findAll();
-  }
+    @Get()
+    findAll(
+      @Query() query: string,
+      @Query('current') current: number,
+      @Query('pageSize') pageSize: number) {
+      return this.departmentService.findAll(query, +current, +pageSize);
+    }
 
   @Get(':id')
   findOne(@Param('id') id: string) {
-    return this.departmentService.findOne(+id);
+    return this.departmentService.findOne(id);
   }
 
   @Patch(':id')
   update(@Param('id') id: string, @Body() updateDepartmentDto: UpdateDepartmentDto) {
-    return this.departmentService.update(+id, updateDepartmentDto);
+    return this.departmentService.update(id, updateDepartmentDto);
   }
 
   @Delete(':id')
   remove(@Param('id') id: string) {
-    return this.departmentService.remove(+id);
+    return this.departmentService.remove(id);
   }
 }
