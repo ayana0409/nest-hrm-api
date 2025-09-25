@@ -14,8 +14,8 @@ export class User {
   @Prop({ type: String, enum: ['admin', 'manager', 'employee'], default: 'employee' })
   role?: string;
 
-//   @Prop({ type: Types.ObjectId, ref: 'Employee', sparse: true })
-//   employeeId?: Types.ObjectId;
+  @Prop({ type: Types.ObjectId, ref: 'Employee', sparse: true })
+  employeeId?: Types.ObjectId;
 
   @Prop({ type: Boolean, default: true })
   active?: boolean;

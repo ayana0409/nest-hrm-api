@@ -6,6 +6,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { MongooseModule } from '@nestjs/mongoose';
 import { DepartmentModule } from './modules/department/department.module';
 import { PositionModule } from './modules/position/position.module';
+import { EmployeeModule } from './modules/employee/employee.module';
 
 @Module({
   imports: [
@@ -21,7 +22,8 @@ import { PositionModule } from './modules/position/position.module';
       inject: [ConfigService],
     }),
     DepartmentModule,
-    PositionModule
+    PositionModule,
+    EmployeeModule
   ],
   controllers: [AppController],
   providers: [AppService]

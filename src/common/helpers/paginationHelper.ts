@@ -1,4 +1,5 @@
 import { Model } from 'mongoose';
+import { toDto } from './transformHelper';
 
 export interface PaginationResult<T> {
   items: T[];
@@ -18,6 +19,7 @@ export async function paginate<T>(
   options?: {
     populate?: Parameters<typeof Model.prototype.populate>[0];
     lean?: boolean;
+    dtoClass?: any;
   },
 ): Promise<PaginationResult<T>> {
   const totalItem = await model.countDocuments(filter).exec();
@@ -40,6 +42,10 @@ export async function paginate<T>(
   }
 
   const items = await query.exec();
+
+  if (options?.dtoClass) {
+    items.map((item, index) => items[index] = toDto(options.dtoClass, item));
+  }
 
   return {
     items,
