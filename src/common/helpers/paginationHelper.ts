@@ -1,7 +1,7 @@
 import { Model } from 'mongoose';
 
 export interface PaginationResult<T> {
-  data: T[];
+  items: T[];
   totalItem: number;
   totalPage: number;
   current: number;
@@ -39,10 +39,10 @@ export async function paginate<T>(
     query = query.lean<T[]>();
   }
 
-  const data = await query.exec();
+  const items = await query.exec();
 
   return {
-    data,
+    items,
     totalItem,
     totalPage,
     current,

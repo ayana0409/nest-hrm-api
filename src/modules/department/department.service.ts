@@ -104,7 +104,7 @@ export class DepartmentService {
     const existing = await this.departmentModel.findOne(filter);
     if (existing) {
       throw new ConflictException({
-        message: 'Department name or code already exists',
+        message: 'Department name already exists',
         errorCode: 'DEPARTMENT_EXISTS',
       });
     }
