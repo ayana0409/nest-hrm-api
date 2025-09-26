@@ -10,17 +10,21 @@ import { PasswordHelper } from '@/common/helpers/passwordHelper';
 import aqp from 'api-query-params';
 import { toDto } from '@/common/helpers/transformHelper';
 import { paginate } from '@/common/helpers/paginationHelper';
+import { EmployeeResponseDto } from '../employee/dto/employee-response.dto';
+import { Employee } from '../employee/schema/employee.schema';
 
 @Injectable()
 export class UserService {
   constructor(
-    @InjectModel(User.name) private userModel: Model<User>, 
+    @InjectModel(User.name) private userModel: Model<User>,
+    @InjectModel(Employee.name) private employeeModel: Model<Employee>,
     private readonly passwordHelper: PasswordHelper
-  ) {}
+  ) { }
 
   async create(createUserDto: CreateUserDto) {
     await this.checkDuplicateUsername(createUserDto.username);
-
+    if (createUserDto.employeeId)
+      await this.checkExistingEmployee(createUserDto.employeeId);
     // Hash the password before saving
     createUserDto.password = await this.passwordHelper.hashPasswordAsync(createUserDto.password);
     const user = await this.userModel.create(createUserDto);
@@ -41,7 +45,14 @@ export class UserService {
       sort,
       selectFields,
       current,
-      pageSize
+      pageSize,
+      {
+        populate: [
+          { path: 'employeeId', select: getDtoSelect(EmployeeResponseDto) },
+        ],
+        lean: false,
+        dtoClass: UserResponseDto
+      }
     );
   }
 
@@ -55,7 +66,10 @@ export class UserService {
     }
 
     const selectFields = getDtoSelect(UserResponseDto).join(' ');
-    const user = await this.userModel.findById(id).select(selectFields).exec();
+    const user = await this.userModel.findById(id)
+      .select(selectFields)
+      .populate({ path: 'employeeId', select: getDtoSelect(EmployeeResponseDto) })
+      .exec();
     if (!user) {
       throw new NotFoundException({
         message: 'User not found',
@@ -71,7 +85,9 @@ export class UserService {
       await this.checkDuplicateUsername(updateUserDto.username);
     if (updateUserDto.password)
       updateUserDto.password = await this.passwordHelper.hashPasswordAsync(updateUserDto.password);
-    
+    if (updateUserDto.employeeId)
+      await this.checkExistingEmployee(updateUserDto.employeeId);
+
     const user = await this.userModel
       .findByIdAndUpdate(id, updateUserDto, { new: true })
       .exec();
@@ -100,8 +116,14 @@ export class UserService {
 
   private async checkDuplicateUsername(username: string) {
     var existingUser = await this.userModel.findOne({ username });
-    if (existingUser) 
+    if (existingUser)
       throw new ConflictException('Username already exists', 'USERNAME_EXISTS');
+  }
+
+  private async checkExistingEmployee(employeeId: string) {
+    var existingEmployee = await this.employeeModel.findById(employeeId);
+    if (!existingEmployee)
+      throw new NotFoundException('Employee not found', 'EMPLOYEE_NOT_FOUND');
   }
 }
 
