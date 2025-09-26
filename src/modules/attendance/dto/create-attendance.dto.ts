@@ -1,23 +1,26 @@
-import { IsDateString, IsEnum, IsMongoId, IsOptional, MaxLength } from "class-validator";
+import { AttendanceStatus } from "@/common/enum/attendance-status.enum";
+import { Type } from "class-transformer";
+import { IsDate, IsDateString, IsEnum, IsMongoId, IsOptional, MaxLength } from "class-validator";
 
 export class CreateAttendanceDto {
     @IsMongoId()
-    employeeId: string;
-
-    @IsDateString()
-    date: string;
+    employeeId: string
 
     @IsOptional()
     @IsDateString()
-    checkIn?: string;
+    date?: string = new Date().toISOString();
+
+    @IsOptional()
+    @IsDateString()
+    checkIn?: string = new Date().toISOString();
 
     @IsOptional()
     @IsDateString()
     checkOut?: string;
 
     @IsOptional()
-    @IsEnum(['on_time', 'late', 'absent', 'half_day'])
-    status?: string;
+    @IsEnum(AttendanceStatus)
+    status?: AttendanceStatus;
 
     @IsOptional()
     @MaxLength(1000)

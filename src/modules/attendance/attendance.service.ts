@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { CreateAttendanceDto } from './dto/create-attendance.dto';
 import { UpdateAttendanceDto } from './dto/update-attendance.dto';
 import { paginate } from '@/common/helpers/paginationHelper';
@@ -7,7 +7,9 @@ import aqp from 'api-query-params';
 import { Employee, EmployeeDocument } from '../employee/schema/employee.schema';
 import { AttendanceResponseDto } from './dto/attendance-response.dto';
 import { Attendance, AttendanceDocument } from './schema/attendance.schema';
-import { Model } from 'mongoose';
+import { Model, Types } from 'mongoose';
+import { AttendanceStatus } from '@/common/enum/attendance-status.enum';
+import { DateHelper } from '@/common/helpers/dateHelper';
 
 @Injectable()
 export class AttendanceService {
@@ -24,6 +26,41 @@ export class AttendanceService {
 
     const attendance = await this.attendanceModel.create(createDto);
     return attendance.toJSON();
+  }
+
+  async checkInOrOut(employeeId: string) {
+    const now = DateHelper.now();
+    const { start, end } = DateHelper.getTodayRange();
+
+    // Tìm attendance gần nhất trong ngày
+    const latest = await this.attendanceModel
+      .findOne({
+        employeeId: new Types.ObjectId(employeeId),
+        date: { $gte: start, $lte: end },
+      })
+      .sort({ createdAt: -1 })
+      .exec();
+
+    // Nếu không có → tạo mới (check-in)
+    if (!latest) {
+      const created = await this.attendanceModel.create({
+        employeeId: new Types.ObjectId(employeeId),
+        date: now,
+        checkIn: now,
+        status: AttendanceStatus.OnTime,
+      });
+      return { action: 'check-in', attendance: created };
+    }
+
+    // Nếu có rồi nhưng chưa check-out
+    if (!latest.checkOut) {
+      latest.checkOut = now;
+      await latest.save();
+      return { action: 'check-out', attendance: latest };
+    }
+
+    // Nếu đã check-out rồi thì không cho tạo thêm
+    throw new BadRequestException('Bạn đã check-out hôm nay, không thể tạo thêm attendance.');
   }
 
   async findAll(query: string, current = 1, pageSize = 10) {
