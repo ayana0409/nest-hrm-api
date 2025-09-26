@@ -7,6 +7,7 @@ import { MongooseModule } from '@nestjs/mongoose';
 import { DepartmentModule } from './modules/department/department.module';
 import { PositionModule } from './modules/position/position.module';
 import { EmployeeModule } from './modules/employee/employee.module';
+import { AttendanceModule } from './modules/attendance/attendance.module';
 
 @Module({
   imports: [
@@ -23,7 +24,8 @@ import { EmployeeModule } from './modules/employee/employee.module';
     }),
     DepartmentModule,
     PositionModule,
-    EmployeeModule
+    EmployeeModule,
+    AttendanceModule
   ],
   controllers: [AppController],
   providers: [AppService]
