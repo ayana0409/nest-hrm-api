@@ -7,11 +7,13 @@ import { CreateLeaveRequestDto } from './dto/create-leave-request.dto';
 import { LeaveRequest, LeaveRequestDocument } from './schema/leave-request.schema';
 import { UpdateLeaveRequestDto } from './dto/update-leave-request.dto';
 import { NotFoundException } from '@/common/exception/custom.exception';
+import * as employeeSchema from '../employee/schema/employee.schema';
 
 @Injectable()
 export class LeaveRequestService {
   constructor(
     @InjectModel(LeaveRequest.name) private leaveModel: Model<LeaveRequestDocument>,
+    @InjectModel(employeeSchema.Employee.name) private readonly employeeModel: employeeSchema.EmployeeModel,
   ) { }
 
   async create(dto: CreateLeaveRequestDto): Promise<LeaveRequest> {
@@ -19,6 +21,7 @@ export class LeaveRequestService {
     dto.startDate = DateHelper.toZoned(new Date(dto.startDate)).toISOString();
     dto.endDate = DateHelper.toZoned(new Date(dto.endDate)).toISOString();
 
+    await this.employeeModel.checkExist(dto.employeeId.toString());
     if (dto.startDate > dto.endDate) {
       throw new BadRequestException('startDate must be before endDate');
     }

@@ -9,10 +9,27 @@ import { Position, PositionSchema } from '../position/schema/position.schema';
 
 @Module({
   imports: [
-    MongooseModule.forFeature([
-      { name: Employee.name, schema: EmployeeSchema },
-      { name: Position.name, schema: PositionSchema },
-      { name: Department.name, schema: DepartmentSchema },
+    MongooseModule.forFeatureAsync([
+      {
+        name: Employee.name,
+        useFactory: () => {
+          const schema = EmployeeSchema;
+          return schema;
+        },
+      }, {
+        name: Department.name,
+        useFactory: () => {
+          const schema = DepartmentSchema;
+          return schema;
+        }
+      },
+      {
+        name: Position.name,
+        useFactory: () => {
+          const schema = PositionSchema;
+          return schema;
+        }
+      }
     ]),
   ],
   controllers: [EmployeeController],

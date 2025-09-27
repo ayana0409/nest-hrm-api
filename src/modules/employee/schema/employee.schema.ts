@@ -1,5 +1,6 @@
+import { NotFoundException } from '@nestjs/common';
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-import { HydratedDocument, Types } from 'mongoose';
+import { HydratedDocument, Model, Types } from 'mongoose';
 
 export type EmployeeDocument = HydratedDocument<Employee>;
 
@@ -46,4 +47,19 @@ export class Employee {
 }
 
 export const EmployeeSchema = SchemaFactory.createForClass(Employee);
+
+export interface EmployeeModel extends Model<EmployeeDocument> {
+  checkExist(employeeId: string): Promise<EmployeeDocument>;
+}
+
+(EmployeeSchema.statics as Partial<EmployeeModel>).checkExist = async function (
+  this: EmployeeModel,
+  employeeId: string,
+) {
+  const employee = await this.findById(employeeId);
+  if (!employee) {
+    throw new NotFoundException('Employee not found', 'EMPLOYEE_NOT_FOUND');
+  }
+  return employee;
+};
 
