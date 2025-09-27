@@ -17,6 +17,13 @@ export class AllExceptionsFilter implements ExceptionFilter {
     let message = 'Internal server error';
     let errorCode = 'INTERNAL_ERROR';
 
+    const custom = this.filter(exception);
+    if (custom) {
+      status = custom.status;
+      message = custom.message;
+      errorCode = custom.errorCode;
+    }
+
     if (exception instanceof HttpException) {
       status = exception.getStatus();
       const res = exception.getResponse();
@@ -38,5 +45,17 @@ export class AllExceptionsFilter implements ExceptionFilter {
       errorCode,
       message,
     });
+  }
+
+  private filter(exception: any) {
+    if (exception?.name === 'CastError' && exception?.kind === 'ObjectId') {
+      return {
+        status: HttpStatus.BAD_REQUEST,
+        message: `Invalid ObjectId: ${exception.value}`,
+        errorCode: 'INVALID_OBJECT_ID',
+      };
+    }
+
+    return null;
   }
 }
