@@ -11,20 +11,20 @@ import aqp from 'api-query-params';
 import { toDto } from '@/common/helpers/transformHelper';
 import { paginate } from '@/common/helpers/paginationHelper';
 import { EmployeeResponseDto } from '../employee/dto/employee-response.dto';
-import { Employee } from '../employee/schema/employee.schema';
+import * as employeeSchema from '../employee/schema/employee.schema';
 
 @Injectable()
 export class UserService {
   constructor(
     @InjectModel(User.name) private userModel: Model<User>,
-    @InjectModel(Employee.name) private employeeModel: Model<Employee>,
+    @InjectModel(employeeSchema.Employee.name) private employeeModel: employeeSchema.EmployeeModel,
     private readonly passwordHelper: PasswordHelper
   ) { }
 
   async create(createUserDto: CreateUserDto) {
     await this.checkDuplicateUsername(createUserDto.username);
     if (createUserDto.employeeId)
-      await this.checkExistingEmployee(createUserDto.employeeId);
+      await this.employeeModel.checkExist(createUserDto.employeeId);
     // Hash the password before saving
     createUserDto.password = await this.passwordHelper.hashPasswordAsync(createUserDto.password);
     const user = await this.userModel.create(createUserDto);
@@ -86,7 +86,7 @@ export class UserService {
     if (updateUserDto.password)
       updateUserDto.password = await this.passwordHelper.hashPasswordAsync(updateUserDto.password);
     if (updateUserDto.employeeId)
-      await this.checkExistingEmployee(updateUserDto.employeeId);
+      await this.employeeModel.checkExist(updateUserDto.employeeId);
 
     const user = await this.userModel
       .findByIdAndUpdate(id, updateUserDto, { new: true })
@@ -118,12 +118,6 @@ export class UserService {
     var existingUser = await this.userModel.findOne({ username });
     if (existingUser)
       throw new ConflictException('Username already exists', 'USERNAME_EXISTS');
-  }
-
-  private async checkExistingEmployee(employeeId: string) {
-    var existingEmployee = await this.employeeModel.findById(employeeId);
-    if (!existingEmployee)
-      throw new NotFoundException('Employee not found', 'EMPLOYEE_NOT_FOUND');
   }
 }
 
