@@ -8,6 +8,7 @@ import { DepartmentModule } from './modules/department/department.module';
 import { PositionModule } from './modules/position/position.module';
 import { EmployeeModule } from './modules/employee/employee.module';
 import { AttendanceModule } from './modules/attendance/attendance.module';
+import { LeaveRequestModule } from './modules/leave-request/leave-request.module';
 
 @Module({
   imports: [
@@ -25,7 +26,8 @@ import { AttendanceModule } from './modules/attendance/attendance.module';
     DepartmentModule,
     PositionModule,
     EmployeeModule,
-    AttendanceModule
+    AttendanceModule,
+    LeaveRequestModule
   ],
   controllers: [AppController],
   providers: [AppService]
