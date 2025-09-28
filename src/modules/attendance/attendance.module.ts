@@ -14,5 +14,6 @@ import { Employee, EmployeeSchema } from '../employee/schema/employee.schema';
   ],
   controllers: [AttendanceController],
   providers: [AttendanceService],
+  exports: [AttendanceService]
 })
 export class AttendanceModule { }

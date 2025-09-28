@@ -10,6 +10,7 @@ import { Attendance, AttendanceDocument } from './schema/attendance.schema';
 import { Model, Types } from 'mongoose';
 import { AttendanceStatus } from '@/common/enum/attendance-status.enum';
 import { DateHelper } from '@/common/helpers/dateHelper';
+import { EmpAttendanceDto } from './dto/emp-attendance.dto';
 
 @Injectable()
 export class AttendanceService {
@@ -55,6 +56,7 @@ export class AttendanceService {
     // Nếu có rồi nhưng chưa check-out
     if (!latest.checkOut) {
       latest.checkOut = now;
+      latest.status = AttendanceStatus.CheckOut;
       await latest.save();
       return { action: 'check-out', attendance: latest };
     }
@@ -101,6 +103,61 @@ export class AttendanceService {
     const result = await this.attendanceModel.findByIdAndDelete(id).lean();
     if (!result) throw new NotFoundException(`Attendance ${id} not found`);
     return result;
+  }
+
+  /**
+   * Tính số ngày công theo trạng thái trong khoảng truyền vào
+   * @param employeeId id nhân viên
+   * @param startDate ngày bắt đầu (Date)
+   * @param endDate ngày kết thúc (Date)
+   */
+  async calculateWorkingDays(
+    employeeId: Types.ObjectId,
+    startDate: Date,
+    endDate: Date,
+  ): Promise<EmpAttendanceDto> {
+    const attendances = await this.attendanceModel.find({
+      employeeId,
+      date: { $gte: startDate, $lte: endDate },
+    });
+
+    let fullDay = 0;
+    let halfDay = 0;
+    let absent = 0;
+    let late = 0;
+
+    for (const att of attendances) {
+      switch (att.status) {
+        case AttendanceStatus.CheckOut:
+          if (att.checkIn && att.checkOut) {
+            fullDay += 1;
+          } else {
+            halfDay += 1;
+          }
+          break;
+        case AttendanceStatus.HalfDay:
+          halfDay += 1;
+          break;
+        case AttendanceStatus.Absent:
+          absent += 1;
+          break;
+        case AttendanceStatus.Late:
+          late += 1;
+          fullDay += 1;
+          break;
+        default:
+          break;
+      }
+    }
+
+    const totalWorkDays = fullDay + halfDay * 0.5;
+    return new EmpAttendanceDto({
+      employeeId: employeeId.toString(),
+      fullDay,
+      halfDay,
+      absentDay: absent,
+      totalDay: totalWorkDays
+    });
   }
 
   private async validateEmployee(employeeId: string) {
