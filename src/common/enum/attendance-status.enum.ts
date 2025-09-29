@@ -1,7 +1,7 @@
 export enum AttendanceStatus {
-    OnTime = 'on_time',
+    OnTime = 'on-time',
     Late = 'late',
-    HalfDay = 'half_day',
+    HalfDay = 'half-day',
     Absent = 'absent',
-    CheckOut = 'check_out',
+    CheckOut = 'check-out',
 }
