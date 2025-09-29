@@ -4,6 +4,8 @@ export class EmpAttendanceDto {
     }
     employeeId: string;
     fullDay: number;
+    overTimeHours: number;
+    lateMinutes: number
     halfDay: number;
     absentDay: number;
     totalDay: number;

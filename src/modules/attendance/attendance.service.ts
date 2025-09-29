@@ -11,13 +11,22 @@ import { Model, Types } from 'mongoose';
 import { AttendanceStatus } from '@/common/enum/attendance-status.enum';
 import { DateHelper } from '@/common/helpers/dateHelper';
 import { EmpAttendanceDto } from './dto/emp-attendance.dto';
+import { ConfigService } from '@nestjs/config';
 
 @Injectable()
 export class AttendanceService {
+  private readonly LATE_THRESHOLD_MINUTES: number;
+  private readonly WORK_START_HOUR: number;
+  private readonly WORK_END_HOUR: number;
   constructor(
+    private readonly configService: ConfigService,
     @InjectModel(Attendance.name) private readonly attendanceModel: Model<AttendanceDocument>,
     @InjectModel(Employee.name) private readonly employeeModel: Model<EmployeeDocument>,
-  ) { }
+  ) {
+    this.LATE_THRESHOLD_MINUTES = +this.configService.get('LATE_THRESHOLD_MINUTES', 15);
+    this.WORK_START_HOUR = +this.configService.get('WORK_START_HOUR', 9);
+    this.WORK_END_HOUR = +this.configService.get('WORK_END_HOUR', 17);
+  }
 
   async create(createDto: CreateAttendanceDto) {
     // Validate employeeId
@@ -25,6 +34,7 @@ export class AttendanceService {
       await this.validateEmployee(createDto.employeeId);
     }
 
+    createDto.employeeId = new Types.ObjectId(createDto.employeeId);
     const attendance = await this.attendanceModel.create(createDto);
     return attendance.toJSON();
   }
@@ -56,7 +66,16 @@ export class AttendanceService {
     // Nếu có rồi nhưng chưa check-out
     if (!latest.checkOut) {
       latest.checkOut = now;
-      latest.status = AttendanceStatus.CheckOut;
+      latest.status = now.getHours() > this.WORK_START_HOUR ? AttendanceStatus.Late : AttendanceStatus.CheckOut;
+      // mark is half-day if check-in late > working hour / 2 and check-out early working hour / 2
+      if (latest.checkIn) {
+        const checkInMinutes = latest.checkIn.getHours() * 60 + latest.checkIn.getMinutes();
+        const checkOutMinutes = latest.checkOut.getHours() * 60 + latest.checkOut.getMinutes();
+        if (checkInMinutes - this.WORK_START_HOUR * 60 > (this.WORK_END_HOUR - this.WORK_START_HOUR) * 30 ||
+          (this.WORK_END_HOUR * 60 - checkOutMinutes) > (this.WORK_END_HOUR - this.WORK_START_HOUR) * 30) {
+          latest.status = AttendanceStatus.HalfDay;
+        }
+      }
       await latest.save();
       return { action: 'check-out', attendance: latest };
     }
@@ -117,23 +136,20 @@ export class AttendanceService {
     endDate: Date,
   ): Promise<EmpAttendanceDto> {
     const attendances = await this.attendanceModel.find({
-      employeeId,
+      employeeId: employeeId,
       date: { $gte: startDate, $lte: endDate },
-    });
+    }).exec();
 
     let fullDay = 0;
     let halfDay = 0;
     let absent = 0;
-    let late = 0;
+    let lateMinutes = 0;
+    let overTimeHours = 0;
 
     for (const att of attendances) {
       switch (att.status) {
         case AttendanceStatus.CheckOut:
-          if (att.checkIn && att.checkOut) {
-            fullDay += 1;
-          } else {
-            halfDay += 1;
-          }
+          fullDay += 1;
           break;
         case AttendanceStatus.HalfDay:
           halfDay += 1;
@@ -142,25 +158,41 @@ export class AttendanceService {
           absent += 1;
           break;
         case AttendanceStatus.Late:
-          late += 1;
           fullDay += 1;
+          if (att.checkIn) {
+            const late = (att.checkIn.getHours() * 60 + att.checkIn.getMinutes()) - (this.WORK_START_HOUR * 60);
+            if (late > this.LATE_THRESHOLD_MINUTES) {
+              lateMinutes += late;
+            }
+          }
           break;
         default:
           break;
       }
+
+      if (att.checkOut) {
+        const outHour = att.checkOut.getHours() + att.checkOut.getMinutes() / 60;
+        if (outHour > this.WORK_END_HOUR) {
+          overTimeHours += outHour - this.WORK_END_HOUR;
+        }
+      }
     }
 
     const totalWorkDays = fullDay + halfDay * 0.5;
+
     return new EmpAttendanceDto({
       employeeId: employeeId.toString(),
       fullDay,
       halfDay,
       absentDay: absent,
-      totalDay: totalWorkDays
+      lateMinutes,
+      overTimeHours,
+      totalDay: totalWorkDays,
     });
   }
 
-  private async validateEmployee(employeeId: string) {
+
+  private async validateEmployee(employeeId: Types.ObjectId) {
     const exists = await this.employeeModel.exists({ _id: employeeId });
     if (!exists)
       throw new NotFoundException(`Employee ${employeeId} not found`);

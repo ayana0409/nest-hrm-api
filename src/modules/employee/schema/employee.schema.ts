@@ -1,3 +1,4 @@
+import { LeaveRequest } from '@/modules/leave-request/schema/leave-request.schema';
 import { NotFoundException } from '@nestjs/common';
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { HydratedDocument, Model, Types } from 'mongoose';
@@ -44,6 +45,8 @@ export class Employee {
 
   @Prop({ type: Date })
   endDate?: Date;
+
+  leaveRequests: LeaveRequest[];
 }
 
 export const EmployeeSchema = SchemaFactory.createForClass(Employee);

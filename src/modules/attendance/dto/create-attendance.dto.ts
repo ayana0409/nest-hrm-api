@@ -1,10 +1,10 @@
 import { AttendanceStatus } from "@/common/enum/attendance-status.enum";
-import { Type } from "class-transformer";
 import { IsDate, IsDateString, IsEnum, IsMongoId, IsOptional, MaxLength } from "class-validator";
+import { Types } from "mongoose";
 
 export class CreateAttendanceDto {
     @IsMongoId()
-    employeeId: string
+    employeeId: Types.ObjectId
 
     @IsOptional()
     @IsDateString()
