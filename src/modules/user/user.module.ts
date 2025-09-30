@@ -10,11 +10,12 @@ import { Employee, EmployeeSchema } from '../employee/schema/employee.schema';
   imports: [
     MongooseModule.forFeature([
       { name: User.name, schema: UserSchema },
-      { name: Employee.name, schema: EmployeeSchema }
+      { name: Employee.name, schema: EmployeeSchema },
     ]),
-    CommonModule
+    CommonModule,
   ],
   controllers: [UserController],
   providers: [UserService],
+  exports: [UserService],
 })
-export class UserModule { }
+export class UserModule {}

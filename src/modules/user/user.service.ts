@@ -132,6 +132,10 @@ export class UserService {
     return toDto(UserResponseDto, user);
   }
 
+  async findByUsername(username: string) {
+    return this.userModel.findOne({ username }).lean();
+  }
+
   private async checkDuplicateUsername(username: string) {
     var existingUser = await this.userModel.findOne({ username });
     if (existingUser)
