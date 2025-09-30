@@ -56,6 +56,17 @@ export class AllExceptionsFilter implements ExceptionFilter {
       };
     }
 
+    if (
+      exception?.name === 'UnauthorizedException' &&
+      exception?.status === 401
+    ) {
+      return {
+        status: HttpStatus.UNAUTHORIZED,
+        message: `${exception.message || 'Unauthorized'}`,
+        errorCode: 'UNAUTHORIZED',
+      };
+    }
+
     return null;
   }
 }
