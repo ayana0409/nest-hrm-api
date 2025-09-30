@@ -10,6 +10,8 @@ import { EmployeeModule } from './modules/employee/employee.module';
 import { AttendanceModule } from './modules/attendance/attendance.module';
 import { LeaveRequestModule } from './modules/leave-request/leave-request.module';
 import { SalaryModule } from './modules/salary/salary.module';
+import { NotificationModule } from './modules/notification/notification.module';
+import { AuthModule } from './modules/auth/auth.module';
 
 @Module({
   imports: [
@@ -29,7 +31,9 @@ import { SalaryModule } from './modules/salary/salary.module';
     EmployeeModule,
     AttendanceModule,
     LeaveRequestModule,
-    SalaryModule
+    SalaryModule,
+    NotificationModule,
+    AuthModule
   ],
   controllers: [AppController],
   providers: [AppService]
