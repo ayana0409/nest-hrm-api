@@ -1,4 +1,8 @@
-import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { InjectModel } from '@nestjs/mongoose';
@@ -17,16 +21,20 @@ import * as employeeSchema from '../employee/schema/employee.schema';
 export class UserService {
   constructor(
     @InjectModel(User.name) private userModel: Model<User>,
-    @InjectModel(employeeSchema.Employee.name) private employeeModel: employeeSchema.EmployeeModel,
-    private readonly passwordHelper: PasswordHelper
-  ) { }
+    @InjectModel(employeeSchema.Employee.name)
+    private employeeModel: employeeSchema.EmployeeModel,
+    private readonly passwordHelper: PasswordHelper,
+  ) {}
 
   async create(createUserDto: CreateUserDto) {
     await this.checkDuplicateUsername(createUserDto.username);
     if (createUserDto.employeeId)
       await this.employeeModel.checkExist(createUserDto.employeeId);
     // Hash the password before saving
-    createUserDto.password = await this.passwordHelper.hashPasswordAsync(createUserDto.password);
+    createUserDto.password = await this.passwordHelper.hashPasswordAsync(
+      createUserDto.password,
+    );
+    createUserDto.employeeId = new Types.ObjectId(createUserDto.employeeId);
     const user = await this.userModel.create(createUserDto);
 
     return toDto(UserResponseDto, user);
@@ -51,11 +59,10 @@ export class UserService {
           { path: 'employeeId', select: getDtoSelect(EmployeeResponseDto) },
         ],
         lean: false,
-        dtoClass: UserResponseDto
-      }
+        dtoClass: UserResponseDto,
+      },
     );
   }
-
 
   async findOne(id: string): Promise<UserResponseDto> {
     if (!Types.ObjectId.isValid(id)) {
@@ -66,9 +73,13 @@ export class UserService {
     }
 
     const selectFields = getDtoSelect(UserResponseDto).join(' ');
-    const user = await this.userModel.findById(id)
+    const user = await this.userModel
+      .findById(id)
       .select(selectFields)
-      .populate({ path: 'employeeId', select: getDtoSelect(EmployeeResponseDto) })
+      .populate({
+        path: 'employeeId',
+        select: getDtoSelect(EmployeeResponseDto),
+      })
       .exec();
     if (!user) {
       throw new NotFoundException({
@@ -80,13 +91,20 @@ export class UserService {
     return toDto(UserResponseDto, user);
   }
 
-  async update(id: string, updateUserDto: UpdateUserDto): Promise<UserResponseDto> {
+  async update(
+    id: string,
+    updateUserDto: UpdateUserDto,
+  ): Promise<UserResponseDto> {
     if (updateUserDto.username)
       await this.checkDuplicateUsername(updateUserDto.username);
     if (updateUserDto.password)
-      updateUserDto.password = await this.passwordHelper.hashPasswordAsync(updateUserDto.password);
-    if (updateUserDto.employeeId)
+      updateUserDto.password = await this.passwordHelper.hashPasswordAsync(
+        updateUserDto.password,
+      );
+    if (updateUserDto.employeeId) {
       await this.employeeModel.checkExist(updateUserDto.employeeId);
+      updateUserDto.employeeId = new Types.ObjectId(updateUserDto.employeeId);
+    }
 
     const user = await this.userModel
       .findByIdAndUpdate(id, updateUserDto, { new: true })
@@ -120,4 +138,3 @@ export class UserService {
       throw new ConflictException('Username already exists', 'USERNAME_EXISTS');
   }
 }
-

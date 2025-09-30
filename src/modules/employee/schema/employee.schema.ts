@@ -7,18 +7,31 @@ export type EmployeeDocument = HydratedDocument<Employee>;
 
 @Schema({ timestamps: true })
 export class Employee {
-  @Prop({ type: String, required: true, trim: true, minlength: 2, maxlength: 200 })
+  @Prop({
+    type: String,
+    required: true,
+    trim: true,
+    minlength: 2,
+    maxlength: 200,
+  })
   fullName: string;
 
   @Prop({
-    type: String, required: true, unique: true, lowercase: true, trim: true,
-    match: /^\S+@\S+\.\S+$/
+    type: String,
+    required: true,
+    unique: true,
+    lowercase: true,
+    trim: true,
+    match: /^\S+@\S+\.\S+$/,
   })
   email: string;
 
   @Prop({
-    type: String, index: true, sparse: true, trim: true,
-    match: /^\+?[0-9\- ]{7,20}$/
+    type: String,
+    index: true,
+    sparse: true,
+    trim: true,
+    match: /^\+?[0-9\- ]{7,20}$/,
   })
   phone?: string;
 
@@ -37,7 +50,11 @@ export class Employee {
   @Prop({ type: Types.ObjectId, ref: 'Department', sparse: true })
   departmentId?: Types.ObjectId;
 
-  @Prop({ type: String, enum: ['active', 'inactive', 'terminated'], default: 'active' })
+  @Prop({
+    type: String,
+    enum: ['active', 'inactive', 'terminated'],
+    default: 'active',
+  })
   status?: string;
 
   @Prop({ type: Date })
@@ -52,12 +69,12 @@ export class Employee {
 export const EmployeeSchema = SchemaFactory.createForClass(Employee);
 
 export interface EmployeeModel extends Model<EmployeeDocument> {
-  checkExist(employeeId: string): Promise<EmployeeDocument>;
+  checkExist(employeeId: Types.ObjectId): Promise<EmployeeDocument>;
 }
 
 (EmployeeSchema.statics as Partial<EmployeeModel>).checkExist = async function (
   this: EmployeeModel,
-  employeeId: string,
+  employeeId: Types.ObjectId,
 ) {
   const employee = await this.findById(employeeId);
   if (!employee) {
@@ -65,4 +82,3 @@ export interface EmployeeModel extends Model<EmployeeDocument> {
   }
   return employee;
 };
-
