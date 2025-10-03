@@ -24,6 +24,13 @@ async function bootstrap() {
 
   // Global Response Interceptor
   app.useGlobalInterceptors(new ResponseInterceptor());
+
+  app.enableCors({
+    origin: 'http://localhost:3000', // Cho phép frontend truy cập
+    methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
+    credentials: true, // Nếu bạn dùng cookie hoặc header xác thực
+  });
+
   const port = configService.get('PORT') || 3000;
   app.use(cookieParser());
   await app.listen(port);
