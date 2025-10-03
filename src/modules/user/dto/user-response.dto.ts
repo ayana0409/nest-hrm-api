@@ -14,12 +14,14 @@ export class UserResponseDto {
 
   @Expose()
   @Transform(({ obj }) =>
-    obj.employeeId ? {
-      id: obj.employeeId._id?.toString(),
-      title: obj.employeeId.fullName,
-      level: obj.employeeId.email,
-      salary: obj.employeeId.phone
-    } : null
+    obj.employeeId
+      ? {
+          id: obj.employeeId._id?.toString(),
+          fullName: obj.employeeId.fullName,
+          email: obj.employeeId.email,
+          phone: obj.employeeId.phone,
+        }
+      : null,
   )
   employee?: UserEmployeeDto;
 

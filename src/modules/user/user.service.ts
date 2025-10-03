@@ -16,6 +16,7 @@ import { toDto } from '@/common/helpers/transformHelper';
 import { paginate } from '@/common/helpers/paginationHelper';
 import { EmployeeResponseDto } from '../employee/dto/employee-response.dto';
 import * as employeeSchema from '../employee/schema/employee.schema';
+import { UserEmployeeDto } from './dto/user-employee.dto';
 
 @Injectable()
 export class UserService {
@@ -56,7 +57,7 @@ export class UserService {
       pageSize,
       {
         populate: [
-          { path: 'employeeId', select: getDtoSelect(EmployeeResponseDto) },
+          { path: 'employeeId', select: getDtoSelect(UserEmployeeDto) },
         ],
         lean: false,
         dtoClass: UserResponseDto,
