@@ -8,20 +8,23 @@ export type UserDocument = HydratedDocument<User>;
 export class User {
   @Prop({
     type: String,
-    required: true,
+    required: [true, 'Username is required'],
     unique: true,
     trim: true,
-    minlength: 3,
-    maxlength: 100,
+    minlength: [3, 'Username must be at least 3 characters'],
+    maxlength: [100, 'Username must not exceed 100 characters'],
   })
   username: string;
 
-  @Prop({ type: String, required: true })
+  @Prop({ type: String, required: [true, 'Password is required'] })
   password: string; // hashed
 
   @Prop({
     type: String,
-    enum: UserRoles,
+    enum: {
+      values: Object.values(UserRoles),
+      message: 'Invalid role',
+    },
     default: UserRoles.EMPLOYEE,
   })
   role: string;

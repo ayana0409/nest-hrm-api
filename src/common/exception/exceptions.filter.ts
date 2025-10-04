@@ -5,6 +5,7 @@ import {
   HttpException,
   HttpStatus,
 } from '@nestjs/common';
+import { ValidationError } from 'class-validator';
 import { Response } from 'express';
 
 @Catch()
@@ -22,6 +23,14 @@ export class AllExceptionsFilter implements ExceptionFilter {
       status = custom.status;
       message = custom.message;
       errorCode = custom.errorCode;
+      response.status(status).json({
+        success: false,
+        statusCode: status,
+        errorCode,
+        message,
+      });
+
+      return;
     }
 
     if (exception instanceof HttpException) {
@@ -66,7 +75,39 @@ export class AllExceptionsFilter implements ExceptionFilter {
         errorCode: 'UNAUTHORIZED',
       };
     }
+    // Validation
+    if (exception?.name === 'ValidationError' && exception?.errors) {
+      const messages = Object.values(exception.errors).map(
+        (err: any) => err.message,
+      );
+      return {
+        status: HttpStatus.BAD_REQUEST,
+        message: messages,
+        errorCode: 'VALIDATION_ERROR',
+      };
+    }
 
+    // Duplicate key
+    if (exception?.code === 11000 && exception?.keyValue) {
+      const field = Object.keys(exception.keyValue)[0];
+      const value = exception.keyValue[field];
+      return {
+        status: HttpStatus.BAD_REQUEST,
+        message: `${field}: '${value}' has been existed`,
+        errorCode: 'DUPLICATE_KEY',
+      };
+    }
+
+    if (
+      exception?.name?.includes('Mongo') ||
+      exception?.message?.includes('Mongo')
+    ) {
+      return {
+        status: HttpStatus.INTERNAL_SERVER_ERROR,
+        message: exception.message || 'Lỗi từ MongoDB',
+        errorCode: 'MONGO_ERROR',
+      };
+    }
     return null;
   }
 }

@@ -28,7 +28,6 @@ export class UserService {
   ) {}
 
   async create(createUserDto: CreateUserDto) {
-    await this.checkDuplicateUsername(createUserDto.username);
     if (createUserDto.employeeId)
       await this.employeeModel.checkExist(createUserDto.employeeId);
     // Hash the password before saving
@@ -96,8 +95,6 @@ export class UserService {
     id: string,
     updateUserDto: UpdateUserDto,
   ): Promise<UserResponseDto> {
-    if (updateUserDto.username)
-      await this.checkDuplicateUsername(updateUserDto.username);
     if (updateUserDto.password)
       updateUserDto.password = await this.passwordHelper.hashPasswordAsync(
         updateUserDto.password,
@@ -135,11 +132,5 @@ export class UserService {
 
   async findByUsername(username: string) {
     return this.userModel.findOne({ username }).lean();
-  }
-
-  private async checkDuplicateUsername(username: string) {
-    var existingUser = await this.userModel.findOne({ username });
-    if (existingUser)
-      throw new ConflictException('Username already exists', 'USERNAME_EXISTS');
   }
 }
