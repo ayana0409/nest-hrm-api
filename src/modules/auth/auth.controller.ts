@@ -6,10 +6,14 @@ import {
   Req,
   UseGuards,
   HttpCode,
+  SetMetadata,
+  UnauthorizedException,
+  BadRequestException,
 } from '@nestjs/common';
 import express from 'express';
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
+import type { Response } from 'express';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 
 @Controller('auth')
@@ -20,52 +24,50 @@ export class AuthController {
   @Post('login')
   async login(
     @Body() dto: LoginDto,
-    @Res({ passthrough: true }) res: express.Response,
+    @Res({ passthrough: true }) res: Response,
   ) {
     const result = await this.authService.login(dto.username, dto.password);
     // set httpOnly cookie for refresh token
     res.cookie('refresh_token', result.refreshToken, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      path: '/auth/refresh',
-      maxAge: parseInt(process.env.REFRESH_TOKEN_COOKIE_AGE || '604800000'), // e.g., 7 days
+      sameSite: 'strict',
+      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 ngày
     });
 
-    return { accessToken: result.accessToken, user: result.user };
+    return {
+      accessToken: result.accessToken,
+      refreshToken: result.refreshToken,
+      user: result.user,
+      expiresIn: result.expiresIn,
+    };
   }
 
   // refresh -> read refresh token cookie, rotate
   @Post('refresh')
-  @HttpCode(200)
   async refresh(
-    @Req() req: express.Request,
-    @Res({ passthrough: true }) res: express.Response,
+    @Body('refresh_token') refreshToken: string,
+    @Res({ passthrough: true }) res: Response,
   ) {
-    const cookie = req.cookies['refresh_token'];
-    if (!cookie) throw new Error('No refresh token');
+    if (!refreshToken) {
+      throw new UnauthorizedException('No refresh token provided');
+    }
 
-    // extract userId from cookie? We need a way: one approach is store userId in cookie as well or use separate subject in cookie.
-    // Better: include userId in refresh token cookie? For simplicity, send userId in body or decode from access token expired - here we assume client sends userId in body or cookie holds encoded userId.
-    // Simpler approach below: client sends userId in header or cookie called refresh_token and userId cookie 'uid'.
-    const userId = req.cookies['uid'];
-    if (!userId) throw new Error('No uid cookie');
+    try {
+      const tokens = await this.authService.refreshToken(refreshToken);
 
-    const { accessToken, refreshToken } = await this.authService.refresh(
-      userId,
-      cookie,
-    );
-
-    // set new refresh token cookie (rotation)
-    res.cookie('refresh_token', refreshToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      path: '/auth/refresh',
-      maxAge: parseInt(process.env.REFRESH_TOKEN_COOKIE_AGE || '604800000'),
-    });
-
-    return { accessToken };
+      // Set cookie mới cho refresh (optional, nếu FE dùng cookie)
+      res.cookie('refresh_token', tokens.refreshToken, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'strict',
+        maxAge: 7 * 24 * 60 * 60 * 1000, // 7 ngày
+      });
+      return tokens; // { accessToken, expiresIn, refreshToken }
+    } catch (error) {
+      res.clearCookie('refresh_token');
+      throw new BadRequestException('Refresh failed', error);
+    }
   }
 
   // logout: clear cookie and remove token from DB
@@ -81,8 +83,8 @@ export class AuthController {
       user._id?.toString?.() || user.userId,
       refreshToken,
     );
-    res.clearCookie('refresh_token', { path: '/auth/refresh' });
-    res.clearCookie('uid', { path: '/auth/refresh' });
+    res.clearCookie('refresh_token', { path: '/' });
+    res.clearCookie('uid', { path: '/' });
     return { ok: true };
   }
 }

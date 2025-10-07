@@ -19,7 +19,7 @@ import { UserRoles } from '@/common/enum/user-roles.enum';
 
 @Controller('department')
 @UseGuards(JwtAuthGuard, RolesGuard)
-@Roles(UserRoles.MANAGER)
+@Roles(UserRoles.MANAGER, UserRoles.ADMIN)
 export class DepartmentController {
   constructor(private readonly departmentService: DepartmentService) {}
 

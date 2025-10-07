@@ -32,9 +32,6 @@ export class User {
   @Prop({ type: Types.ObjectId, ref: 'Employee', sparse: true })
   employeeId?: Types.ObjectId;
 
-  @Prop({ type: [String], default: [] })
-  refreshTokens: string[];
-
   @Prop({ type: Boolean, default: true })
   active?: boolean;
 }

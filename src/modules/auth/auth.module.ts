@@ -9,6 +9,10 @@ import { MongooseModule } from '@nestjs/mongoose';
 import { User, UserSchema } from '../user/schema/user.schema';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { UserModule } from '../user/user.module';
+import {
+  RefreshToken,
+  RefreshTokenSchema,
+} from '../user/schema/refresh-token.schema';
 
 @Module({
   imports: [
@@ -17,6 +21,9 @@ import { UserModule } from '../user/user.module';
     PassportModule,
     UserModule,
     MongooseModule.forFeature([{ name: User.name, schema: UserSchema }]),
+    MongooseModule.forFeature([
+      { name: RefreshToken.name, schema: RefreshTokenSchema },
+    ]),
     JwtModule.registerAsync({
       imports: [ConfigModule],
       inject: [ConfigService],

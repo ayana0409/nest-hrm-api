@@ -12,12 +12,13 @@ import { LeaveRequestModule } from './modules/leave-request/leave-request.module
 import { SalaryModule } from './modules/salary/salary.module';
 import { NotificationModule } from './modules/notification/notification.module';
 import { AuthModule } from './modules/auth/auth.module';
+import { CacheModule } from '@nestjs/cache-manager';
 
 @Module({
   imports: [
     UserModule,
     ConfigModule.forRoot({
-      isGlobal: true
+      isGlobal: true,
     }),
     MongooseModule.forRootAsync({
       imports: [ConfigModule],
@@ -26,6 +27,15 @@ import { AuthModule } from './modules/auth/auth.module';
       }),
       inject: [ConfigService],
     }),
+    CacheModule.registerAsync({
+      isGlobal: true,
+      imports: [ConfigModule], // Import ConfigModule để inject ConfigService
+      inject: [ConfigService],
+      useFactory: async (configService: ConfigService) => ({
+        ttl: 600000, //parseInt(configService.get<string>('CACHE_TIME_LIFE') || '30000'),
+        max: parseInt(configService.get<string>('CACHE_MAX_ITEM') || '100'),
+      }),
+    }),
     DepartmentModule,
     PositionModule,
     EmployeeModule,
@@ -33,9 +43,9 @@ import { AuthModule } from './modules/auth/auth.module';
     LeaveRequestModule,
     SalaryModule,
     NotificationModule,
-    AuthModule
+    AuthModule,
   ],
   controllers: [AppController],
-  providers: [AppService]
+  providers: [AppService],
 })
 export class AppModule {}
