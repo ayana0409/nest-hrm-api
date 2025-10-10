@@ -13,6 +13,7 @@ import { SalaryModule } from './modules/salary/salary.module';
 import { NotificationModule } from './modules/notification/notification.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { CacheModule } from '@nestjs/cache-manager';
+import { redisStore } from 'cache-manager-redis-yet';
 
 @Module({
   imports: [
@@ -29,12 +30,32 @@ import { CacheModule } from '@nestjs/cache-manager';
     }),
     CacheModule.registerAsync({
       isGlobal: true,
-      imports: [ConfigModule], // Import ConfigModule để inject ConfigService
+      imports: [ConfigModule],
       inject: [ConfigService],
-      useFactory: async (configService: ConfigService) => ({
-        ttl: 600000, //parseInt(configService.get<string>('CACHE_TIME_LIFE') || '30000'),
-        max: parseInt(configService.get<string>('CACHE_MAX_ITEM') || '100'),
-      }),
+      useFactory: async (configService: ConfigService) => {
+        const redisUrl =
+          configService.get<string>('REDIS_URL') || 'redis://127.0.0.1:6379';
+        console.log('Redis URL:', redisUrl);
+        try {
+          const store = await redisStore({
+            url: redisUrl,
+            ttl: parseInt(
+              configService.get<string>('CACHE_TIME_LIFE') || '86400000',
+            ),
+          });
+          console.log('Redis store initialized:', store ? 'Success' : 'Failed');
+          return {
+            store,
+            ttl: parseInt(
+              configService.get<string>('CACHE_TIME_LIFE') || '86400000',
+            ),
+            max: parseInt(configService.get<string>('CACHE_MAX_ITEM') || '100'),
+          };
+        } catch (error) {
+          console.error('Error initializing Redis store:', error);
+          throw error;
+        }
+      },
     }),
     DepartmentModule,
     PositionModule,

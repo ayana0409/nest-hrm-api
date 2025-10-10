@@ -102,57 +102,6 @@ export class AuthService {
     };
   }
 
-  // refresh: rotate refresh token
-  async refreshToken(oldRefreshToken: string) {
-    const isTokenUsed = await this.isTokenUsed(oldRefreshToken);
-    if (isTokenUsed) return { refreshToken: oldRefreshToken };
-
-    var oldRefreshTokenDoc = await this.refreshTokenModel.findOne({
-      refreshToken: oldRefreshToken,
-      used: false,
-    });
-
-    if (!oldRefreshTokenDoc) {
-      throw new BadRequestException('Invalid refresh token');
-    }
-
-    // Xóa hashed cũ (revoke)
-    oldRefreshTokenDoc.used = true;
-    await oldRefreshTokenDoc.save();
-
-    const matchedUser = await this.userModel.findById(
-      oldRefreshTokenDoc.userId,
-    );
-    if (!matchedUser) {
-      throw new BadRequestException('Invalid refresh token');
-    }
-    // Tạo tokens mới
-    const newAccessToken = this.createAccessToken({
-      sub: matchedUser._id.toString(),
-      username: matchedUser.username,
-      roles: [matchedUser.role],
-    });
-
-    const expiresInConfig =
-      this.configService.get<string>('JWT_ACCESS_EXPIRES') || '15m';
-    const expiresInSeconds = convertToSeconds(expiresInConfig);
-
-    const { rawToken: newRefreshToken, hashed: newHashed } =
-      await this.createRefreshToken();
-
-    this.refreshTokenModel.create({
-      userId: matchedUser._id,
-      refreshToken: newRefreshToken,
-    });
-    await this.markTokenAsUsed(oldRefreshToken);
-
-    return {
-      accessToken: newAccessToken,
-      expiresIn: expiresInSeconds,
-      refreshToken: newRefreshToken,
-    };
-  }
-
   // logout: remove specific refresh token (or clear all)
   async logout(userId: string, refreshToken?: string) {
     const user = await this.userModel.findById(userId);
@@ -160,18 +109,125 @@ export class AuthService {
     this.refreshTokenModel.deleteMany({ userId: user._id });
   }
 
+  async refreshToken(oldRefreshToken: string) {
+    const lockKey = `lock:refresh_token:${oldRefreshToken}`;
+    const lockTTL = 60000;
+
+    // // Kiểm tra khóa hiện tại
+    let lockAcquired = false;
+    try {
+      const existingLock = await this.cacheManager.get(lockKey);
+      if (existingLock) {
+        return { refreshToken: oldRefreshToken };
+      }
+
+      // Thử lấy khóa với cacheManager.set
+      const lockValue = Date.now().toString();
+      await this.cacheManager.set(lockKey, lockValue, lockTTL);
+      lockAcquired = true;
+      const storedLock = await this.cacheManager.get(lockKey);
+      if (storedLock !== lockValue) {
+        lockAcquired = false;
+        return { refreshToken: oldRefreshToken };
+      }
+    } catch (error) {
+      return { refreshToken: oldRefreshToken };
+    }
+
+    try {
+      // Kiểm tra cache
+      const isTokenUsed = await this.isTokenUsed(oldRefreshToken);
+      if (isTokenUsed) {
+        return { refreshToken: oldRefreshToken };
+      }
+
+      const oldRefreshTokenDoc = await this.refreshTokenModel.findOne({
+        refreshToken: oldRefreshToken,
+        used: false,
+      });
+
+      if (!oldRefreshTokenDoc) {
+        throw new BadRequestException('Invalid refresh token');
+      }
+
+      // Marking refresh token as used in database
+      oldRefreshTokenDoc.used = true;
+      await oldRefreshTokenDoc.save();
+
+      // Querying user from database
+      const matchedUser = await this.userModel.findById(
+        oldRefreshTokenDoc.userId,
+      );
+      if (!matchedUser) {
+        throw new BadRequestException('Invalid refresh token');
+      }
+
+      // Creating new access token
+      const newAccessToken = this.createAccessToken({
+        sub: matchedUser._id.toString(),
+        username: matchedUser.username,
+        roles: [matchedUser.role],
+      });
+
+      const expiresInConfig =
+        this.configService.get<string>('JWT_ACCESS_EXPIRES') || '15m';
+      const expiresInSeconds = convertToSeconds(expiresInConfig);
+
+      // Creating new refresh token
+      const { rawToken: newRefreshToken, hashed: newHashed } =
+        await this.createRefreshToken();
+
+      await this.refreshTokenModel.create({
+        userId: matchedUser._id,
+        refreshToken: newRefreshToken,
+      });
+
+      // Marking token as used in cache
+      await this.markTokenAsUsed(oldRefreshToken);
+
+      return {
+        accessToken: newAccessToken,
+        expiresIn: expiresInSeconds,
+        refreshToken: newRefreshToken,
+      };
+    } catch (error) {
+      console.error(`Error processing refreshToken ${oldRefreshToken}:`, error);
+      throw error;
+    } finally {
+      try {
+        if (lockAcquired) {
+          await this.cacheManager.del(lockKey);
+          console.log(`Lock released for ${oldRefreshToken}`);
+        }
+      } catch (error) {
+        console.error('Error releasing lock:', error);
+      }
+    }
+  }
+
   async isTokenUsed(token: string): Promise<boolean> {
     const key = `used_refresh_token:${token}`;
-    const exists = await this.cacheManager.get(key);
-    return !!exists;
+    try {
+      const exists = await this.cacheManager.get(key);
+      console.log(`Checking cache for key ${key}:`, exists);
+      return !!exists;
+    } catch (error) {
+      console.error(`Error checking cache for key ${key}:`, error);
+      return false;
+    }
   }
 
   async markTokenAsUsed(token: string): Promise<void> {
     const key = `used_refresh_token:${token}`;
-    await this.cacheManager.set(
-      key,
-      true,
-      parseInt(this.configService.get<string>('CACHE_TIME_LIFE') || '30000'),
+    const cacheTTL = parseInt(
+      this.configService.get<string>('CACHE_TIME_LIFE') || '86400000',
     );
+    console.log(`Setting cache for key ${key}, TTL: ${cacheTTL}`);
+    try {
+      await this.cacheManager.set(key, true, cacheTTL);
+    } catch (error) {
+      console.error(`Error setting cache for key ${key}:`, error);
+      throw new Error('Failed to set cache');
+    }
   }
 }
