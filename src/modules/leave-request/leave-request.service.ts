@@ -62,7 +62,7 @@ export class LeaveRequestService {
   async findPagedLeaveRequest(
     current = 1,
     pageSize = 10,
-    filters?: {
+    filter?: {
       startDate?: string;
       endDate?: string;
       employeeId?: string;
@@ -73,14 +73,14 @@ export class LeaveRequestService {
 
     // --- Filter động ---
     const match: any = {};
-    if (filters?.startDate || filters?.endDate) {
+    if (filter?.startDate || filter?.endDate) {
       match.startDate = {};
-      if (filters.startDate) match.startDate.$gte = new Date(filters.startDate);
-      if (filters.endDate) match.startDate.$lte = new Date(filters.endDate);
+      if (filter.startDate) match.startDate.$gte = new Date(filter.startDate);
+      if (filter.endDate) match.startDate.$lte = new Date(filter.endDate);
     }
-    if (filters?.employeeId)
-      match.employeeId = new Types.ObjectId(filters.employeeId);
-    if (filters?.status) match.status = filters.status;
+    if (filter?.employeeId)
+      match.employeeId = new Types.ObjectId(filter.employeeId);
+    if (filter?.status) match.status = filter.status;
     if (Object.keys(match).length > 0) pipeline.push({ $match: match });
 
     // --- Ép employeeId từ string sang ObjectId ---
