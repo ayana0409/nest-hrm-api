@@ -50,6 +50,9 @@ export class Employee {
   @Prop({ type: Types.ObjectId, ref: 'Department', sparse: true })
   departmentId?: Types.ObjectId;
 
+  @Prop({ type: [[Number]], default: [] })
+  faceDescriptors: number[][];
+
   @Prop({
     type: String,
     enum: ['active', 'inactive', 'terminated'],
