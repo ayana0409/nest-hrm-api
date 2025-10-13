@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ConflictException,
   Injectable,
   NotFoundException,
@@ -18,13 +19,17 @@ import { Position } from '../position/schema/position.schema';
 import { validateForeignKey } from '@/common/helpers/validateHelper';
 import { EmpPositionDto } from './dto/emp-position.dto';
 import { EmpDepartmentDto } from './dto/emp-department.dto';
-
+import { EventEmitter2 } from '@nestjs/event-emitter';
+import { EmployeeEventEnum } from './dto/employee.event';
+import { EmpFaceService } from '@/services/face/emp-face.service';
 @Injectable()
 export class EmployeeService {
   constructor(
     @InjectModel(Employee.name) private employeeModel: Model<Employee>,
     @InjectModel(Position.name) private positionModel: Model<Position>,
     @InjectModel(Department.name) private departmentModel: Model<Department>,
+    private readonly empFaceDetectionService: EmpFaceService,
+    private readonly eventEmitter: EventEmitter2,
   ) {}
 
   async create(createDto: CreateEmployeeDto): Promise<EmployeeResponseDto> {
@@ -36,7 +41,35 @@ export class EmployeeService {
     await validateForeignKey(this.departmentModel, createDto.departmentId);
 
     const employee = await this.employeeModel.create(createDto);
+    this.eventEmitter.emit(EmployeeEventEnum.Create, {
+      employeeId: employee._id.toString(),
+    });
     return toDto(EmployeeResponseDto, employee);
+  }
+
+  async registerFace(employeeId: string, imageBase64: string) {
+    try {
+      let employee = await this.employeeModel.findById(employeeId).exec();
+      if (!employee) throw new NotFoundException('Employee not found');
+      const detection =
+        await this.empFaceDetectionService.detectFace(imageBase64);
+
+      const descriptor = Array.from(detection.descriptor); // Chuyển Float32Array thành array
+
+      employee.faceDescriptors.push(descriptor);
+      if (employee.faceDescriptors.length > 10) {
+        employee.faceDescriptors.shift(); // Giới hạn tối đa 10 descriptors
+      }
+
+      await employee.save();
+      this.eventEmitter.emit(EmployeeEventEnum.Update, {
+        employeeId: employee._id.toString(),
+      });
+
+      return { success: true, message: 'Đăng ký khuôn mặt thành công' };
+    } catch (error) {
+      throw new BadRequestException('Lỗi đăng ký khuôn mặt: ' + error.message);
+    }
   }
 
   async findAll(query: string, current = 1, pageSize = 10) {
@@ -104,12 +137,18 @@ export class EmployeeService {
 
     if (!employee) throw new NotFoundException('Employee not found');
 
+    this.eventEmitter.emit(EmployeeEventEnum.Update, {
+      employeeId: employee._id.toString(),
+    });
     return toDto(EmployeeResponseDto, employee);
   }
 
   async remove(id: string): Promise<EmployeeResponseDto> {
     const employee = await this.employeeModel.findByIdAndDelete(id).exec();
     if (!employee) throw new NotFoundException('Employee not found');
+    this.eventEmitter.emit(EmployeeEventEnum.Delete, {
+      employeeId: employee._id.toString(),
+    });
     return toDto(EmployeeResponseDto, employee);
   }
 }

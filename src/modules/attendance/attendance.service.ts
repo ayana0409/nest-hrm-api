@@ -1,6 +1,9 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { CreateAttendanceDto } from './dto/create-attendance.dto';
-import { UpdateAttendanceDto } from './dto/update-attendance.dto';
 import { paginate } from '@/common/helpers/paginationHelper';
 import { InjectModel } from '@nestjs/mongoose';
 import aqp from 'api-query-params';
@@ -12,18 +15,27 @@ import { AttendanceStatus } from '@/common/enum/attendance-status.enum';
 import { DateHelper } from '@/common/helpers/dateHelper';
 import { EmpAttendanceDto } from './dto/emp-attendance.dto';
 import { ConfigService } from '@nestjs/config';
+import { EmpFaceService } from '@/services/face/emp-face.service';
 
 @Injectable()
 export class AttendanceService {
   private readonly LATE_THRESHOLD_MINUTES: number;
   private readonly WORK_START_HOUR: number;
   private readonly WORK_END_HOUR: number;
+
+  last: number;
   constructor(
     private readonly configService: ConfigService,
-    @InjectModel(Attendance.name) private readonly attendanceModel: Model<AttendanceDocument>,
-    @InjectModel(Employee.name) private readonly employeeModel: Model<EmployeeDocument>,
+    @InjectModel(Attendance.name)
+    private readonly attendanceModel: Model<AttendanceDocument>,
+    @InjectModel(Employee.name)
+    private readonly employeeModel: Model<EmployeeDocument>,
+    private readonly empFaceDetectionService: EmpFaceService,
   ) {
-    this.LATE_THRESHOLD_MINUTES = +this.configService.get('LATE_THRESHOLD_MINUTES', 15);
+    this.LATE_THRESHOLD_MINUTES = +this.configService.get(
+      'LATE_THRESHOLD_MINUTES',
+      15,
+    );
     this.WORK_START_HOUR = +this.configService.get('WORK_START_HOUR', 9);
     this.WORK_END_HOUR = +this.configService.get('WORK_END_HOUR', 17);
   }
@@ -37,6 +49,37 @@ export class AttendanceService {
     createDto.employeeId = new Types.ObjectId(createDto.employeeId);
     const attendance = await this.attendanceModel.create(createDto);
     return attendance.toJSON();
+  }
+
+  async processAttendance(imageBase64: string) {
+    const { employeeId, fullName } =
+      await this.empFaceDetectionService.findBestMatchEmp(imageBase64);
+
+    if (!employeeId) {
+      return {
+        success: false,
+        message: 'No employee match',
+      };
+    }
+
+    try {
+      const result = await this.checkInOrOut(employeeId);
+      return {
+        success: true,
+        employeeId,
+        fullName,
+        action: result?.action || 'Unknown',
+        message: 'Success',
+      };
+    } catch (error) {
+      return {
+        success: false,
+        employeeId,
+        fullName,
+        action: 'Failed',
+        message: error.message,
+      };
+    }
   }
 
   async checkInOrOut(employeeId: string) {
@@ -66,13 +109,22 @@ export class AttendanceService {
     // Nếu có rồi nhưng chưa check-out
     if (!latest.checkOut) {
       latest.checkOut = now;
-      latest.status = now.getHours() > this.WORK_START_HOUR ? AttendanceStatus.Late : AttendanceStatus.CheckOut;
+      latest.status =
+        now.getHours() > this.WORK_START_HOUR
+          ? AttendanceStatus.Late
+          : AttendanceStatus.CheckOut;
       // mark is half-day if check-in late > working hour / 2 and check-out early working hour / 2
       if (latest.checkIn) {
-        const checkInMinutes = latest.checkIn.getHours() * 60 + latest.checkIn.getMinutes();
-        const checkOutMinutes = latest.checkOut.getHours() * 60 + latest.checkOut.getMinutes();
-        if (checkInMinutes - this.WORK_START_HOUR * 60 > (this.WORK_END_HOUR - this.WORK_START_HOUR) * 30 ||
-          (this.WORK_END_HOUR * 60 - checkOutMinutes) > (this.WORK_END_HOUR - this.WORK_START_HOUR) * 30) {
+        const checkInMinutes =
+          latest.checkIn.getHours() * 60 + latest.checkIn.getMinutes();
+        const checkOutMinutes =
+          latest.checkOut.getHours() * 60 + latest.checkOut.getMinutes();
+        if (
+          checkInMinutes - this.WORK_START_HOUR * 60 >
+            (this.WORK_END_HOUR - this.WORK_START_HOUR) * 30 ||
+          this.WORK_END_HOUR * 60 - checkOutMinutes >
+            (this.WORK_END_HOUR - this.WORK_START_HOUR) * 30
+        ) {
           latest.status = AttendanceStatus.HalfDay;
         }
       }
@@ -81,7 +133,9 @@ export class AttendanceService {
     }
 
     // Nếu đã check-out rồi thì không cho tạo thêm
-    throw new BadRequestException('Bạn đã check-out hôm nay, không thể tạo thêm attendance.');
+    throw new BadRequestException(
+      'Bạn đã check-out hôm nay, không thể tạo thêm attendance.',
+    );
   }
 
   async findAll(query: string, current = 1, pageSize = 10) {
@@ -95,7 +149,7 @@ export class AttendanceService {
       sort,
       [],
       current,
-      pageSize
+      pageSize,
     );
   }
 
@@ -135,10 +189,12 @@ export class AttendanceService {
     startDate: Date,
     endDate: Date,
   ): Promise<EmpAttendanceDto> {
-    const attendances = await this.attendanceModel.find({
-      employeeId: employeeId,
-      date: { $gte: startDate, $lte: endDate },
-    }).exec();
+    const attendances = await this.attendanceModel
+      .find({
+        employeeId: employeeId,
+        date: { $gte: startDate, $lte: endDate },
+      })
+      .exec();
 
     let fullDay = 0;
     let halfDay = 0;
@@ -160,7 +216,10 @@ export class AttendanceService {
         case AttendanceStatus.Late:
           fullDay += 1;
           if (att.checkIn) {
-            const late = (att.checkIn.getHours() * 60 + att.checkIn.getMinutes()) - (this.WORK_START_HOUR * 60);
+            const late =
+              att.checkIn.getHours() * 60 +
+              att.checkIn.getMinutes() -
+              this.WORK_START_HOUR * 60;
             if (late > this.LATE_THRESHOLD_MINUTES) {
               lateMinutes += late;
             }
@@ -171,7 +230,8 @@ export class AttendanceService {
       }
 
       if (att.checkOut) {
-        const outHour = att.checkOut.getHours() + att.checkOut.getMinutes() / 60;
+        const outHour =
+          att.checkOut.getHours() + att.checkOut.getMinutes() / 60;
         if (outHour > this.WORK_END_HOUR) {
           overTimeHours += outHour - this.WORK_END_HOUR;
         }
@@ -191,11 +251,9 @@ export class AttendanceService {
     });
   }
 
-
   private async validateEmployee(employeeId: Types.ObjectId) {
     const exists = await this.employeeModel.exists({ _id: employeeId });
     if (!exists)
       throw new NotFoundException(`Employee ${employeeId} not found`);
   }
 }
-

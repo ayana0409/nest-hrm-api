@@ -8,6 +8,7 @@ import {
   DepartmentSchema,
 } from '../department/schema/department.schema';
 import { Position, PositionSchema } from '../position/schema/position.schema';
+import { EmpFaceService } from '@/services/face/emp-face.service';
 
 @Module({
   imports: [
@@ -36,6 +37,6 @@ import { Position, PositionSchema } from '../position/schema/position.schema';
     ]),
   ],
   controllers: [EmployeeController],
-  providers: [EmployeeService],
+  providers: [EmployeeService, EmpFaceService],
 })
 export class EmployeeModule {}

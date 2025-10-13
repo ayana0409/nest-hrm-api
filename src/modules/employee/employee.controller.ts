@@ -1,22 +1,37 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, Query } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Patch,
+  Param,
+  Delete,
+  Query,
+} from '@nestjs/common';
 import { EmployeeService } from './employee.service';
 import { CreateEmployeeDto } from './dto/create-employee.dto';
 import { UpdateEmployeeDto } from './dto/update-employee.dto';
 
 @Controller('employee')
 export class EmployeeController {
-  constructor(private readonly employeeService: EmployeeService) { }
+  constructor(private readonly employeeService: EmployeeService) {}
 
   @Post()
   create(@Body() createEmployeeDto: CreateEmployeeDto) {
     return this.employeeService.create(createEmployeeDto);
   }
 
+  @Post('register-face')
+  async registerFace(@Body() body: { employeeId: string; image: string }) {
+    return this.employeeService.registerFace(body.employeeId, body.image);
+  }
+
   @Get()
   findAll(
     @Query() query: string,
     @Query('current') current: number,
-    @Query('pageSize') pageSize: number) {
+    @Query('pageSize') pageSize: number,
+  ) {
     return this.employeeService.findAll(query, +current, +pageSize);
   }
 
@@ -26,7 +41,10 @@ export class EmployeeController {
   }
 
   @Patch(':id')
-  update(@Param('id') id: string, @Body() updateEmployeeDto: UpdateEmployeeDto) {
+  update(
+    @Param('id') id: string,
+    @Body() updateEmployeeDto: UpdateEmployeeDto,
+  ) {
     return this.employeeService.update(id, updateEmployeeDto);
   }
 

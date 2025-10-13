@@ -1,11 +1,20 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, Query } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Patch,
+  Param,
+  Delete,
+  Query,
+} from '@nestjs/common';
 import { AttendanceService } from './attendance.service';
 import { CreateAttendanceDto } from './dto/create-attendance.dto';
 import { UpdateAttendanceDto } from './dto/update-attendance.dto';
 
 @Controller('attendance')
 export class AttendanceController {
-  constructor(private readonly attendanceService: AttendanceService) { }
+  constructor(private readonly attendanceService: AttendanceService) {}
 
   @Post()
   create(@Body() createAttendanceDto: CreateAttendanceDto) {
@@ -16,7 +25,8 @@ export class AttendanceController {
   findAll(
     @Query() query: string,
     @Query('current') current: number,
-    @Query('pageSize') pageSize: number) {
+    @Query('pageSize') pageSize: number,
+  ) {
     return this.attendanceService.findAll(query, +current, +pageSize);
   }
 
@@ -26,7 +36,10 @@ export class AttendanceController {
   }
 
   @Patch(':id')
-  update(@Param('id') id: string, @Body() updateAttendanceDto: UpdateAttendanceDto) {
+  update(
+    @Param('id') id: string,
+    @Body() updateAttendanceDto: UpdateAttendanceDto,
+  ) {
     return this.attendanceService.update(id, updateAttendanceDto);
   }
 
@@ -38,5 +51,10 @@ export class AttendanceController {
   @Post('check-in-or-out/:employeeId')
   async toggleCheckInOut(@Param('employeeId') employeeId: string) {
     return this.attendanceService.checkInOrOut(employeeId);
+  }
+
+  @Post('image')
+  async toggleCheckInOutImage(@Body() body: { image: string }) {
+    return this.attendanceService.processAttendance(body.image);
   }
 }
