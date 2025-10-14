@@ -15,6 +15,9 @@ export class EmployeeResponseDto {
   email: string;
 
   @Expose()
+  avatarUrl?: string;
+
+  @Expose()
   phone?: string;
 
   @Expose()

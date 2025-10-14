@@ -53,6 +53,12 @@ export class Employee {
   @Prop({ type: [[Number]], default: [] })
   faceDescriptors: number[][];
 
+  @Prop({ type: String })
+  avatarPublicId: string;
+
+  @Prop({ type: String })
+  avatarUrl: string;
+
   @Prop({
     type: String,
     enum: ['active', 'inactive', 'terminated'],

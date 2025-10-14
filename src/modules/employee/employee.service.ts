@@ -22,12 +22,14 @@ import { EmpDepartmentDto } from './dto/emp-department.dto';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { EmployeeEventEnum } from './dto/employee.event';
 import { EmpFaceService } from '@/services/face/emp-face.service';
+import { CloudinaryService } from '@/services/cloud/cloundinary.service';
 @Injectable()
 export class EmployeeService {
   constructor(
     @InjectModel(Employee.name) private employeeModel: Model<Employee>,
     @InjectModel(Position.name) private positionModel: Model<Position>,
     @InjectModel(Department.name) private departmentModel: Model<Department>,
+    private cloudinaryService: CloudinaryService,
     private readonly empFaceDetectionService: EmpFaceService,
     private readonly eventEmitter: EventEmitter2,
   ) {}
@@ -141,6 +143,29 @@ export class EmployeeService {
       employeeId: employee._id.toString(),
     });
     return toDto(EmployeeResponseDto, employee);
+  }
+
+  async updateAvatar(employeeId: string, base64Image: string): Promise<string> {
+    const uploadResult = await this.cloudinaryService.uploadImage(base64Image);
+
+    const employee = await this.employeeModel.findById(
+      new Types.ObjectId(employeeId),
+    );
+    if (!employee) {
+      throw new Error('Employee not found');
+    }
+
+    // Xóa avatar cũ nếu tồn tại
+    if (employee.avatarPublicId) {
+      await this.cloudinaryService.deleteImage(employee.avatarPublicId);
+    }
+
+    // Cập nhật URL và publicId mới
+    employee.avatarUrl = uploadResult.secure_url;
+    employee.avatarPublicId = uploadResult.public_id;
+    await employee.save();
+
+    return uploadResult.secure_url;
   }
 
   async remove(id: string): Promise<EmployeeResponseDto> {

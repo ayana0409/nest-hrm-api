@@ -48,6 +48,15 @@ export class EmployeeController {
     return this.employeeService.update(id, updateEmployeeDto);
   }
 
+  @Post(':id/avatar')
+  async uploadAvatar(
+    @Param('id') id: string,
+    @Body('image') base64Image: string,
+  ): Promise<{ avatarUrl: string }> {
+    const avatarUrl = await this.employeeService.updateAvatar(id, base64Image);
+    return { avatarUrl };
+  }
+
   @Delete(':id')
   remove(@Param('id') id: string) {
     return this.employeeService.remove(id);
