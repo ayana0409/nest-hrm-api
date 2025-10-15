@@ -153,6 +153,29 @@ export class AttendanceService {
     );
   }
 
+  async findAllById(query: string, current = 1, pageSize = 10) {
+    const { filter, sort } = aqp(query);
+    const employeeId = filter.id;
+    delete filter.current;
+    delete filter.pageSize;
+    delete filter.fullName;
+    delete filter.id;
+    const finalFilter = { ...filter };
+    finalFilter.employeeId = new Types.ObjectId(employeeId);
+
+    return paginate<AttendanceResponseDto>(
+      this.attendanceModel,
+      finalFilter,
+      { checkIn: -1 },
+      [],
+      current,
+      pageSize,
+      {
+        dtoClass: AttendanceResponseDto,
+      },
+    );
+  }
+
   async findOne(id: string) {
     const att = await this.attendanceModel.findById(id).lean();
     if (!att) throw new NotFoundException(`Attendance ${id} not found`);
