@@ -1,7 +1,7 @@
 import { Exclude, Expose, Transform, Type } from 'class-transformer';
 import { EmpDepartmentDto } from './emp-department.dto';
 import { EmpPositionDto } from './emp-position.dto';
-import { formatDateToYMD } from '@/common/helpers/dateHelper';
+import { DateHelper, formatDateToYMD } from '@/common/helpers/dateHelper';
 
 export class EmployeeResponseDto {
   @Expose()
@@ -55,14 +55,26 @@ export class EmployeeResponseDto {
   status?: string;
 
   @Expose()
+  @Transform(({ obj }) =>
+    obj.startDate ? DateHelper.format(obj.startDate, 'yyyy-MM-dd') : null,
+  )
   startDate?: Date;
 
   @Expose()
+  @Transform(({ obj }) =>
+    obj.endDate ? DateHelper.format(obj.endDate, 'yyyy-MM-dd') : null,
+  )
   endDate?: Date;
 
   @Expose()
+  @Transform(({ obj }) =>
+    obj.createdAt ? DateHelper.format(obj.createdAt) : null,
+  )
   createdAt: Date;
 
   @Expose()
+  @Transform(({ obj }) =>
+    obj.updatedAt ? DateHelper.format(obj.updatedAt) : null,
+  )
   updatedAt: Date;
 }

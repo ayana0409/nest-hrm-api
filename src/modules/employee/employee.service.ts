@@ -23,6 +23,7 @@ import { EventEmitter2 } from '@nestjs/event-emitter';
 import { EmployeeEventEnum } from './dto/employee.event';
 import { EmpFaceService } from '@/services/face/emp-face.service';
 import { CloudinaryService } from '@/services/cloud/cloundinary.service';
+import { resizeImageToRatio } from '@/common/helpers/image-helper';
 @Injectable()
 export class EmployeeService {
   constructor(
@@ -146,7 +147,10 @@ export class EmployeeService {
   }
 
   async updateAvatar(employeeId: string, base64Image: string): Promise<string> {
-    const uploadResult = await this.cloudinaryService.uploadImage(base64Image);
+    if (!base64Image) throw new BadRequestException('base64Image is required.');
+    const resizedBase64 = await resizeImageToRatio(base64Image, 500);
+    const uploadResult =
+      await this.cloudinaryService.uploadImage(resizedBase64);
 
     const employee = await this.employeeModel.findById(
       new Types.ObjectId(employeeId),
