@@ -1,4 +1,9 @@
-import { Inject, Injectable, OnModuleInit } from '@nestjs/common';
+import {
+  BadRequestException,
+  Inject,
+  Injectable,
+  OnModuleInit,
+} from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { ConfigService } from '@nestjs/config';
@@ -140,7 +145,7 @@ export class EmpFaceService implements OnModuleInit {
       .withFaceDescriptor();
 
     if (!detection) {
-      throw new Error('No face detected');
+      throw new BadRequestException('No face detected');
     }
     return detection;
   }
@@ -149,7 +154,7 @@ export class EmpFaceService implements OnModuleInit {
     const detection = await this.detectFace(imageBase64);
     const matcher = await this.buildFaceMatcher();
     if (!matcher) {
-      throw new Error('Chưa có dữ liệu khuôn mặt nào để so khớp');
+      throw new Error('No matcher available');
     }
 
     let empId: string | null = null;

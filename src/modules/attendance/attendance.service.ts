@@ -56,10 +56,7 @@ export class AttendanceService {
       await this.empFaceDetectionService.findBestMatchEmp(imageBase64);
 
     if (!employeeId) {
-      return {
-        success: false,
-        message: 'No employee match',
-      };
+      throw new NotFoundException('No employee match');
     }
 
     try {
