@@ -17,6 +17,7 @@ import { paginate } from '@/common/helpers/paginationHelper';
 import { EmployeeResponseDto } from '../employee/dto/employee-response.dto';
 import * as employeeSchema from '../employee/schema/employee.schema';
 import { UserEmployeeDto } from './dto/user-employee.dto';
+import { ConfigService } from '@nestjs/config';
 
 @Injectable()
 export class UserService {
@@ -24,12 +25,15 @@ export class UserService {
     @InjectModel(User.name) private userModel: Model<User>,
     @InjectModel(employeeSchema.Employee.name)
     private employeeModel: employeeSchema.EmployeeModel,
+    private readonly configService: ConfigService,
     private readonly passwordHelper: PasswordHelper,
   ) {}
 
   async create(createUserDto: CreateUserDto) {
     if (createUserDto.employeeId)
       await this.employeeModel.checkExist(createUserDto.employeeId);
+
+    await this.validatePassword(createUserDto.password);
     // Hash the password before saving
     createUserDto.password = await this.passwordHelper.hashPasswordAsync(
       createUserDto.password,
@@ -132,5 +136,39 @@ export class UserService {
 
   async findByUsername(username: string) {
     return this.userModel.findOne({ username }).lean();
+  }
+
+  async changePassword(userId: string, newPassword: string) {
+    await this.validatePassword(newPassword);
+    const hashedPassword =
+      await this.passwordHelper.hashPasswordAsync(newPassword);
+    const result = await this.userModel
+      .findByIdAndUpdate(userId, { password: hashedPassword }, { new: true })
+      .exec();
+    if (!result) {
+      throw new NotFoundException({
+        message: 'User not found',
+        errorCode: 'USER_NOT_FOUND',
+      });
+    }
+    return toDto(UserResponseDto, result);
+  }
+
+  async resetPassword(userId: string) {
+    const defaultPassword =
+      this.configService.get<string>('DEFAULT_PASSWORD') || 'Password@123';
+    return this.changePassword(userId, defaultPassword);
+  }
+
+  async validatePassword(password: string) {
+    const passwordPolicy =
+      /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
+    if (!passwordPolicy.test(password)) {
+      throw new ConflictException({
+        message:
+          'Password must be at least 8 characters long and include uppercase letters, lowercase letters, numbers, and special characters.',
+        errorCode: 'PASSWORD_POLICY_VIOLATION',
+      });
+    }
   }
 }

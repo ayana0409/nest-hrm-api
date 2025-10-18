@@ -5,6 +5,7 @@ import { User, UserSchema } from './schema/user.schema';
 import { MongooseModule } from '@nestjs/mongoose';
 import { CommonModule } from '@/common/common.module';
 import { Employee, EmployeeSchema } from '../employee/schema/employee.schema';
+import { ConfigModule } from '@nestjs/config';
 
 @Module({
   imports: [
@@ -13,6 +14,7 @@ import { Employee, EmployeeSchema } from '../employee/schema/employee.schema';
       { name: Employee.name, schema: EmployeeSchema },
     ]),
     CommonModule,
+    ConfigModule,
   ],
   controllers: [UserController],
   providers: [UserService],
