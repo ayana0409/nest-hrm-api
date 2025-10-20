@@ -2,7 +2,6 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { User, UserDocument } from '../user/schema/user.schema';
-import { CreateAppNotificationDto } from './dto/create-app-notification.dto';
 import { UpdateAppNotificationDto } from './dto/update-app-notification.dto';
 import {
   AppNotificationDocument,
@@ -10,6 +9,8 @@ import {
 } from './schema/app-notification.schema';
 import { Employee, EmployeeDocument } from '../employee/schema/employee.schema';
 import { NotificationGateway } from './notification.gateway';
+import { randomUUID } from 'crypto';
+import { NotificationType } from '@/common/enum/notification-type.enum';
 
 @Injectable()
 export class NotificationService {
@@ -25,21 +26,38 @@ export class NotificationService {
     private readonly notificationGateway: NotificationGateway,
   ) {}
 
-  async create(dto: CreateAppNotificationDto) {
-    var result = await this.notificationModel.create(dto);
-    if (result)
-      this.notificationGateway.sendNotificationToUser(
-        dto.userId.toString(),
-        dto.message,
-      );
-
-    return result;
-  }
-
   async findByUser(userId: string) {
     return this.notificationModel
       .find({ userId: new Types.ObjectId(userId) })
       .sort({ createdAt: -1 });
+  }
+
+  async findByPosition(positionId: string) {
+    return this.notificationModel.aggregate([
+      {
+        $match: {
+          targetType: NotificationType.POSITION,
+          targetId: new Types.ObjectId(positionId),
+        },
+      },
+      { $sort: { createdAt: -1 } },
+      { $group: { _id: '$batchKey', doc: { $first: '$$ROOT' } } },
+      { $replaceRoot: { newRoot: '$doc' } },
+    ]);
+  }
+
+  async findByDepartment(departmentId: string) {
+    return this.notificationModel.aggregate([
+      {
+        $match: {
+          targetType: NotificationType.DEPARTMENT,
+          targetId: new Types.ObjectId(departmentId),
+        },
+      },
+      { $sort: { createdAt: -1 } },
+      { $group: { _id: '$batchKey', doc: { $first: '$$ROOT' } } },
+      { $replaceRoot: { newRoot: '$doc' } },
+    ]);
   }
 
   async findOne(id: string) {
@@ -73,18 +91,71 @@ export class NotificationService {
     return this.update(id, { read: true });
   }
 
-  async sendToPositionAndDepartment(
-    positionId: string,
-    departmentId: string,
+  async sendToEmployees(employeeIds: string[], message: string) {
+    if (!employeeIds?.length) return [];
+
+    const users = await this.userModel
+      .find({
+        employeeId: { $in: employeeIds.map((id) => new Types.ObjectId(id)) },
+      })
+      .lean();
+
+    if (!users.length) return [];
+
+    const batchKey = randomUUID();
+
+    const notifications = users.map((u) => ({
+      userId: u._id,
+      message,
+      batchKey,
+      targetType: NotificationType.INDIVIDUAL,
+    }));
+
+    const result = await this.notificationModel.insertMany(notifications);
+
+    users.forEach((u) => {
+      this.notificationGateway.sendNotificationToUser(
+        u._id.toString(),
+        message,
+      );
+    });
+
+    return result;
+  }
+
+  async sendToDepartments(departmentIds: string[], message: string) {
+    return this.sendToEmployeesByField(
+      'departmentId',
+      departmentIds,
+      message,
+      NotificationType.DEPARTMENT,
+    );
+  }
+
+  async sendToPositions(positionIds: string[], message: string) {
+    return this.sendToEmployeesByField(
+      'positionId',
+      positionIds,
+      message,
+      NotificationType.POSITION,
+    );
+  }
+
+  private async sendToEmployeesByField(
+    field: 'departmentId' | 'positionId',
+    ids: string[],
     message: string,
+    targetType: NotificationType.DEPARTMENT | NotificationType.POSITION,
   ) {
-    const query: Record<string, any> = {};
-    if (positionId) query.positionId = new Types.ObjectId(positionId);
+    if (!ids?.length) return [];
 
-    if (departmentId) query.departmentId = new Types.ObjectId(departmentId);
+    const employees = await this.employeeModel
+      .find({ [field]: { $in: ids.map((id) => new Types.ObjectId(id)) } })
+      .select('_id')
+      .lean();
 
-    const employees = await this.employeeModel.find(query).select('_id').lean();
     const employeeIds = employees.map((e) => e._id);
+    if (!employeeIds.length) return [];
 
     const users = await this.userModel
       .find({ employeeId: { $in: employeeIds } })
@@ -92,14 +163,17 @@ export class NotificationService {
 
     if (!users.length) return [];
 
+    const batchKey = randomUUID();
+
     const notifications = users.map((u) => ({
       userId: u._id,
       message,
+      batchKey,
+      targetType,
+      targetIds: ids.map((id) => new Types.ObjectId(id)), // lưu danh sách departmentId/positionId
     }));
 
-    const result = this.notificationModel.insertMany(notifications, {
-      lean: true,
-    });
+    const result = await this.notificationModel.insertMany(notifications);
 
     users.forEach((u) => {
       this.notificationGateway.sendNotificationToUser(

@@ -1,3 +1,4 @@
+import { NotificationType } from '@/common/enum/notification-type.enum';
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { HydratedDocument, Types } from 'mongoose';
 
@@ -13,6 +14,19 @@ export class AppNotification {
 
   @Prop({ type: Boolean, default: false })
   read?: boolean;
+
+  @Prop({
+    type: String,
+    enum: NotificationType,
+    default: NotificationType.INDIVIDUAL,
+  })
+  targetType: NotificationType;
+
+  @Prop({ type: Types.ObjectId, refPath: 'targetType' })
+  targetId?: Types.ObjectId;
+
+  @Prop({ type: String })
+  batchKey?: string;
 }
 
 export const AppNotificationSchema =

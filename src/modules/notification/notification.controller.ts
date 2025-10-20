@@ -8,21 +8,25 @@ import {
   Post,
 } from '@nestjs/common';
 import { NotificationService } from './notification.service';
-import { CreateAppNotificationDto } from './dto/create-app-notification.dto';
 import { UpdateAppNotificationDto } from './dto/update-app-notification.dto';
 
 @Controller('notification')
 export class NotificationController {
   constructor(private readonly notificationService: NotificationService) {}
 
-  @Post()
-  create(@Body() dto: CreateAppNotificationDto) {
-    return this.notificationService.create(dto);
-  }
-
   @Get('user/:userId')
   findByUser(@Param('userId') userId: string) {
     return this.notificationService.findByUser(userId);
+  }
+
+  @Get('department/:departmentId')
+  findByDepartment(@Param('departmentId') departmentId: string) {
+    return this.notificationService.findByDepartment(departmentId);
+  }
+
+  @Get('position/:positionId')
+  findByPosition(@Param('positionId') positionId: string) {
+    return this.notificationService.findByPosition(positionId);
   }
 
   @Get(':id')
@@ -45,14 +49,44 @@ export class NotificationController {
     return this.notificationService.remove(id);
   }
 
-  // Gửi cho user theo position và department
-  @Post('send/position-department')
-  sendToPositionAndDepartment(
-    @Body() body: { position: string; department: string; message: string },
+  @Post('send/employees')
+  async sendToEmployees(
+    @Body()
+    body: {
+      employeeIds: string[];
+      message: string;
+    },
   ) {
-    return this.notificationService.sendToPositionAndDepartment(
-      body.position,
-      body.department,
+    return this.notificationService.sendToEmployees(
+      body.employeeIds,
+      body.message,
+    );
+  }
+
+  @Post('send/departments')
+  async sendToDepartments(
+    @Body()
+    body: {
+      departmentIds: string[];
+      message: string;
+    },
+  ) {
+    return this.notificationService.sendToDepartments(
+      body.departmentIds,
+      body.message,
+    );
+  }
+
+  @Post('send/positions')
+  async sendToPositions(
+    @Body()
+    body: {
+      positionIds: string[];
+      message: string;
+    },
+  ) {
+    return this.notificationService.sendToPositions(
+      body.positionIds,
       body.message,
     );
   }
