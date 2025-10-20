@@ -4,13 +4,13 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { CreateAttendanceDto } from './dto/create-attendance.dto';
-import { paginate } from '@/common/helpers/paginationHelper';
+import { paginate, paginateAggregate } from '@/common/helpers/paginationHelper';
 import { InjectModel } from '@nestjs/mongoose';
 import aqp from 'api-query-params';
 import { Employee, EmployeeDocument } from '../employee/schema/employee.schema';
 import { AttendanceResponseDto } from './dto/attendance-response.dto';
 import { Attendance, AttendanceDocument } from './schema/attendance.schema';
-import { Model, Types } from 'mongoose';
+import { Model, PipelineStage, Types } from 'mongoose';
 import { AttendanceStatus } from '@/common/enum/attendance-status.enum';
 import { DateHelper } from '@/common/helpers/dateHelper';
 import { EmpAttendanceDto } from './dto/emp-attendance.dto';
@@ -147,6 +147,75 @@ export class AttendanceService {
       [],
       current,
       pageSize,
+      {
+        dtoClass: AttendanceResponseDto,
+      },
+    );
+  }
+
+  async findToday(fullName?: string, current = 1, pageSize = 10) {
+    const now = new Date();
+    const todayStart = new Date(
+      now.getFullYear(),
+      now.getMonth(),
+      now.getDate(),
+    );
+    const todayEnd = new Date(
+      now.getFullYear(),
+      now.getMonth(),
+      now.getDate() + 1,
+    );
+    todayEnd.setSeconds(todayEnd.getSeconds() - 1);
+
+    const pipeline: PipelineStage[] = [
+      {
+        $match: {
+          date: { $gte: todayStart, $lte: todayEnd },
+        },
+      },
+      {
+        $lookup: {
+          from: 'employees', // tên collection của Employee
+          localField: 'employeeId',
+          foreignField: '_id',
+          as: 'employee',
+        },
+      },
+      { $unwind: '$employee' },
+    ];
+
+    if (fullName) {
+      pipeline.push({
+        $match: {
+          'employee.fullName': { $regex: fullName, $options: 'i' },
+        },
+      });
+    }
+
+    pipeline.push(
+      {
+        $project: {
+          _id: 1,
+          employeeId: 1,
+          checkIn: 1,
+          checkOut: 1,
+          status: 1,
+          fullName: '$employee.fullName',
+        },
+      },
+      {
+        $sort: { updatedAt: -1 },
+      },
+    );
+
+    return paginateAggregate<AttendanceResponseDto>(
+      this.attendanceModel,
+      pipeline,
+      current,
+      pageSize,
+      {
+        dtoClass: AttendanceResponseDto,
+      },
     );
   }
 

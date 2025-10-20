@@ -10,6 +10,9 @@ export class AttendanceResponseDto {
   date: Date;
 
   @Expose()
+  fullName: string;
+
+  @Expose()
   @Transform(({ obj }) => (obj.checkIn ? DateHelper.format(obj.checkIn) : null))
   checkIn?: Date;
 

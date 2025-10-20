@@ -30,6 +30,15 @@ export class AttendanceController {
     return this.attendanceService.findAll(query, +current, +pageSize);
   }
 
+  @Get('today')
+  findAllToday(
+    @Query('current') current: number,
+    @Query('pageSize') pageSize: number,
+    @Query('fullName') fullName?: string,
+  ) {
+    return this.attendanceService.findToday(fullName, +current, +pageSize);
+  }
+
   @Get('employee/:id')
   findAllByEmpId(
     @Query() query: string,
