@@ -6,27 +6,25 @@ import {
   Param,
   Patch,
   Post,
+  Query,
 } from '@nestjs/common';
 import { NotificationService } from './notification.service';
 import { UpdateAppNotificationDto } from './dto/update-app-notification.dto';
+import { PagedNotificationRequestDto } from './dto/paged-notification-request.dto';
+import { string } from '@tensorflow/tfjs';
 
 @Controller('notification')
 export class NotificationController {
   constructor(private readonly notificationService: NotificationService) {}
 
-  @Get('user/:userId')
-  findByUser(@Param('userId') userId: string) {
-    return this.notificationService.findByUser(userId);
-  }
-
-  @Get('department/:departmentId')
-  findByDepartment(@Param('departmentId') departmentId: string) {
-    return this.notificationService.findByDepartment(departmentId);
-  }
-
-  @Get('position/:positionId')
-  findByPosition(@Param('positionId') positionId: string) {
-    return this.notificationService.findByPosition(positionId);
+  @Get('paged')
+  async findPagedNotifications(@Query() query: PagedNotificationRequestDto) {
+    const { current, pageSize, ...filter } = query;
+    return this.notificationService.findPagedNotifications(
+      current,
+      pageSize,
+      filter,
+    );
   }
 
   @Get(':id')

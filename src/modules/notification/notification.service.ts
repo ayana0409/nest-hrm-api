@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model, Types } from 'mongoose';
+import { Model, PipelineStage, Types } from 'mongoose';
 import { User, UserDocument } from '../user/schema/user.schema';
 import { UpdateAppNotificationDto } from './dto/update-app-notification.dto';
 import {
@@ -11,6 +11,8 @@ import { Employee, EmployeeDocument } from '../employee/schema/employee.schema';
 import { NotificationGateway } from './notification.gateway';
 import { randomUUID } from 'crypto';
 import { NotificationType } from '@/common/enum/notification-type.enum';
+import { paginateAggregate } from '@/common/helpers/paginationHelper';
+import { NotificationResponseDto } from './dto/notification-response.dto';
 
 @Injectable()
 export class NotificationService {
@@ -25,39 +27,114 @@ export class NotificationService {
     private employeeModel: Model<EmployeeDocument>,
     private readonly notificationGateway: NotificationGateway,
   ) {}
+  async findPagedNotifications(
+    current = 1,
+    pageSize = 10,
+    filter: {
+      targetType?: NotificationType; // "INDIVIDUAL" | "POSITION" | "DEPARTMENT" | "EMPLOYEE"
+      targetId?: string; // ID của target (nếu có)
+      userId?: string; // ID user nếu cần lọc riêng
+      read?: boolean; // lọc đã đọc/chưa đọc
+    },
+  ) {
+    const pipeline: PipelineStage[] = [];
 
-  async findByUser(userId: string) {
-    return this.notificationModel
-      .find({ userId: new Types.ObjectId(userId) })
-      .sort({ createdAt: -1 });
-  }
+    // --- Match động ---
+    const match: any = {};
 
-  async findByPosition(positionId: string) {
-    return this.notificationModel.aggregate([
+    if (filter.targetType) match.targetType = filter.targetType;
+    if (filter.targetId) match.targetId = new Types.ObjectId(filter.targetId);
+    if (filter.userId) match.userId = new Types.ObjectId(filter.userId);
+    if (filter.read !== undefined) match.read = filter.read;
+
+    pipeline.push({ $match: match });
+
+    // --- Join user nếu cần hiển thị thông tin người nhận ---
+    pipeline.push(
       {
-        $match: {
-          targetType: NotificationType.POSITION,
-          targetId: new Types.ObjectId(positionId),
+        $lookup: {
+          from: 'users',
+          localField: 'userId',
+          foreignField: '_id',
+          as: 'user',
         },
       },
-      { $sort: { createdAt: -1 } },
-      { $group: { _id: '$batchKey', doc: { $first: '$$ROOT' } } },
-      { $replaceRoot: { newRoot: '$doc' } },
-    ]);
-  }
+      { $unwind: { path: '$user', preserveNullAndEmptyArrays: true } },
+    );
 
-  async findByDepartment(departmentId: string) {
-    return this.notificationModel.aggregate([
+    // --- Join các bảng phụ thuộc vào targetType ---
+    pipeline.push(
       {
-        $match: {
-          targetType: NotificationType.DEPARTMENT,
-          targetId: new Types.ObjectId(departmentId),
+        $lookup: {
+          from: 'departments',
+          localField: 'targetId',
+          foreignField: '_id',
+          as: 'department',
         },
       },
-      { $sort: { createdAt: -1 } },
-      { $group: { _id: '$batchKey', doc: { $first: '$$ROOT' } } },
-      { $replaceRoot: { newRoot: '$doc' } },
-    ]);
+      {
+        $lookup: {
+          from: 'positions',
+          localField: 'targetId',
+          foreignField: '_id',
+          as: 'position',
+        },
+      },
+      {
+        $lookup: {
+          from: 'employees',
+          localField: 'targetId',
+          foreignField: '_id',
+          as: 'employee',
+        },
+      },
+    );
+
+    // --- Nếu là tin gửi hàng loạt (POSITION/DEPARTMENT) thì gom theo batchKey ---
+    if (
+      filter.targetType === NotificationType.POSITION ||
+      filter.targetType === NotificationType.DEPARTMENT
+    ) {
+      pipeline.push({
+        $group: {
+          _id: '$batchKey',
+          message: { $first: '$message' },
+          read: { $min: '$read' }, // nếu 1 tin chưa đọc thì coi là chưa đọc
+          createdAt: { $first: '$createdAt' },
+          targetType: { $first: '$targetType' },
+          targetId: { $first: '$targetId' },
+          department: { $first: { $arrayElemAt: ['$department', 0] } },
+          position: { $first: { $arrayElemAt: ['$position', 0] } },
+        },
+      });
+    }
+
+    // --- Sắp xếp ---
+    pipeline.push({ $sort: { createdAt: -1 } });
+
+    // --- Chọn field cần thiết ---
+    pipeline.push({
+      $project: {
+        message: 1,
+        read: 1,
+        createdAt: 1,
+        targetType: 1,
+        targetId: 1,
+        'user.fullName': 1,
+        'user.email': 1,
+        'department.name': 1,
+        'position.title': 1,
+      },
+    });
+
+    // --- Phân trang ---
+    return paginateAggregate<NotificationResponseDto>(
+      this.notificationModel,
+      pipeline,
+      current,
+      pageSize,
+      { dtoClass: NotificationResponseDto },
+    );
   }
 
   async findOne(id: string) {
