@@ -22,8 +22,8 @@ export class AppNotification {
   })
   targetType: NotificationType;
 
-  @Prop({ type: Types.ObjectId, refPath: 'targetType' })
-  targetId?: Types.ObjectId;
+  @Prop({ type: [{ type: Types.ObjectId, refPath: 'targetType' }] })
+  targetIds?: Types.ObjectId[];
 
   @Prop({ type: String })
   batchKey?: string;

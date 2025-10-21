@@ -33,5 +33,6 @@ export class PagedNotificationRequestDto {
 
   @IsBoolean()
   @IsOptional()
+  @Type(() => Boolean)
   read?: boolean;
 }

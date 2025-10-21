@@ -43,11 +43,13 @@ export class NotificationService {
     const match: any = {};
 
     if (filter.targetType) match.targetType = filter.targetType;
-    if (filter.targetId) match.targetId = new Types.ObjectId(filter.targetId);
+    if (filter.read) match.read = filter.read;
     if (filter.userId) match.userId = new Types.ObjectId(filter.userId);
-    if (filter.read !== undefined) match.read = filter.read;
+    if (filter.targetId)
+      match.targetIds = { $in: [new Types.ObjectId(filter.targetId)] };
 
-    pipeline.push({ $match: match });
+    // only push match if it's not empty
+    if (Object.keys(match).length > 0) pipeline.push({ $match: match });
 
     // --- Join user nếu cần hiển thị thông tin người nhận ---
     pipeline.push(
