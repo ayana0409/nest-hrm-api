@@ -13,6 +13,9 @@ export class UserResponseDto {
   readonly role?: string;
 
   @Expose()
+  employeeId?: string;
+
+  @Expose()
   @Transform(({ obj }) =>
     obj.employeeId
       ? {
