@@ -48,9 +48,10 @@ export class EmpFaceService implements OnModuleInit {
       Image: canvas.Image as any,
       ImageData: canvas.ImageData as any,
     });
-    await faceapi.nets.tinyFaceDetector.loadFromDisk('./src/models');
+    // await faceapi.nets.tinyFaceDetector.loadFromDisk('./src/models');
     await faceapi.nets.faceLandmark68Net.loadFromDisk('./src/models');
     await faceapi.nets.faceRecognitionNet.loadFromDisk('./src/models');
+    await faceapi.nets.ssdMobilenetv1.loadFromDisk('./src/models');
   }
 
   private async buildFaceMatcher(force: boolean = false) {
@@ -115,7 +116,7 @@ export class EmpFaceService implements OnModuleInit {
       return null;
     }
 
-    this.faceMatcher = new faceapi.FaceMatcher(labeledDescriptors, 0.6);
+    this.faceMatcher = new faceapi.FaceMatcher(labeledDescriptors, 0.5);
     this.lastCacheUpdate = Date.now();
     return this.faceMatcher;
   }
@@ -130,15 +131,26 @@ export class EmpFaceService implements OnModuleInit {
     const img = await loadImage(imgBuffer);
 
     // Resize ảnh xuống 300px để tăng tốc độ xử lý
-    const resizedImg = await resizeImage(img, 512);
+    const resizedImg = await resizeImage(img, 480);
 
     // Sử dụng tinyFaceDetector để tối ưu hiệu suất
+    // const detection = await faceapi
+    //   .detectSingleFace(
+    //     resizedImg as any,
+    //     new faceapi.TinyFaceDetectorOptions({
+    //       scoreThreshold: 0.3,
+    //       inputSize: 416,
+    //     }),
+    //   )
+    //   .withFaceLandmarks()
+    //   .withFaceDescriptor();
+
     const detection = await faceapi
       .detectSingleFace(
         resizedImg as any,
-        new faceapi.TinyFaceDetectorOptions({
-          scoreThreshold: 0.4,
-          inputSize: 224,
+        new faceapi.SsdMobilenetv1Options({
+          minConfidence: 0.55,
+          maxResults: 1,
         }),
       )
       .withFaceLandmarks()
