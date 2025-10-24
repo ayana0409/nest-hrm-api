@@ -16,7 +16,6 @@ import {
   LeaveRequest,
   LeaveRequestDocument,
 } from '../leave-request/schema/leave-request.schema';
-import { plainToInstance, Type } from 'class-transformer';
 import { EmployeeSalaryDto } from './dto/employee-salary.dto';
 import { getDtoSelect } from '@/common/helpers/dtoHelper';
 import { EmpSalaryDepartmentDto } from './dto/emp-salary-department.dto';
@@ -95,7 +94,7 @@ export class SalaryService {
     return this.salaryModel.find({ employeeId }).exec();
   }
   async findAll(query: string, current = 1, pageSize = 10) {
-    const { filter, sort } = aqp(query);
+    let { filter, sort } = aqp(query);
     delete filter.current;
     delete filter.pageSize;
 
@@ -126,7 +125,7 @@ export class SalaryService {
 
     const result = await this.salaryModel.findOneAndUpdate(
       {
-        employeeId: new Types.ObjectId(employeeId),
+        employeeId: employeeId,
         month: formatedMonth,
       },
       salaryData,
@@ -263,7 +262,7 @@ export class SalaryService {
     const netSalary = Math.max(totalDay * hourlyRate + bonus - deductions, 0);
 
     const result = Object.assign(new Salary(), {
-      employeeId: new Types.ObjectId(employeeId),
+      employeeId: employeeId,
       month,
       fullName: employee.fullName,
       department: dto.department?.name || '',
