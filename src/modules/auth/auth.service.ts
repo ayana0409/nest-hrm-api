@@ -97,6 +97,7 @@ export class AuthService {
         id: user._id.toString(),
         username: user.username,
         roles: user.role,
+        employeeId: user.employeeId,
       },
       expiresIn: expiresInSeconds,
     };
@@ -113,6 +114,7 @@ export class AuthService {
     const lockKey = `lock:refresh_token:${oldRefreshToken}`;
     const lockTTL = 60000;
 
+    console.log(`Attempting to acquire lock for ${oldRefreshToken}`);
     // // Kiểm tra khóa hiện tại
     let lockAcquired = false;
     try {
@@ -143,7 +145,7 @@ export class AuthService {
 
       const oldRefreshTokenDoc = await this.refreshTokenModel.findOne({
         refreshToken: oldRefreshToken,
-        used: false,
+        // used: false,
       });
 
       if (!oldRefreshTokenDoc) {
