@@ -2,14 +2,21 @@ import {
   Injectable,
   NotFoundException,
   BadRequestException,
+  HttpStatus,
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import * as employeeSchema from '../employee/schema/employee.schema';
 import { Salary, SalaryDocument } from './schema/salary.schema';
-import { Attendance, AttendanceDocument } from '../attendance/schema/attendance.schema';
-import { LeaveRequest, LeaveRequestDocument } from '../leave-request/schema/leave-request.schema';
-import { plainToInstance } from 'class-transformer';
+import {
+  Attendance,
+  AttendanceDocument,
+} from '../attendance/schema/attendance.schema';
+import {
+  LeaveRequest,
+  LeaveRequestDocument,
+} from '../leave-request/schema/leave-request.schema';
+import { plainToInstance, Type } from 'class-transformer';
 import { EmployeeSalaryDto } from './dto/employee-salary.dto';
 import { getDtoSelect } from '@/common/helpers/dtoHelper';
 import { EmpSalaryDepartmentDto } from './dto/emp-salary-department.dto';
@@ -20,6 +27,10 @@ import { ConfigService } from '@nestjs/config';
 import { toDto } from '@/common/helpers/transformHelper';
 import { paginate } from '@/common/helpers/paginationHelper';
 import aqp from 'api-query-params';
+import { runWithConcurrency } from '@/common/helpers/promise.helper';
+import { EmployeeStatusEnum } from '@/common/enum/employee-status..enum';
+import SalaryResponse from './dto/salary-response';
+import { DateHelper } from '@/common/helpers/dateHelper';
 
 @Injectable()
 export class SalaryService {
@@ -29,21 +40,39 @@ export class SalaryService {
   private readonly LATE_PENALTY_PER_MINUTE: number;
   private readonly ABSENCE_PENALTY_PER_DAY: number;
   private readonly BONUS_WHEN_NO_LEAVE: number;
+  private readonly MAX_GENERATE_QUEUE: number;
 
   constructor(
     private readonly configService: ConfigService,
     private readonly attendanceService: AttendanceService,
-    @InjectModel(Salary.name) private readonly salaryModel: Model<SalaryDocument>,
-    @InjectModel(employeeSchema.Employee.name) private readonly employeeModel: employeeSchema.EmployeeModel,
-    @InjectModel(Attendance.name) private attendanceModel: Model<AttendanceDocument>,
-    @InjectModel(LeaveRequest.name) private leaveModel: Model<LeaveRequestDocument>
+    @InjectModel(Salary.name)
+    private readonly salaryModel: Model<SalaryDocument>,
+    @InjectModel(employeeSchema.Employee.name)
+    private readonly employeeModel: employeeSchema.EmployeeModel,
+    @InjectModel(Attendance.name)
+    private attendanceModel: Model<AttendanceDocument>,
+    @InjectModel(LeaveRequest.name)
+    private leaveModel: Model<LeaveRequestDocument>,
   ) {
-    this.WORK_DAYS_PER_MONTH = +this.configService.get('WORK_DAYS_PER_MONTH', 26);
+    this.WORK_DAYS_PER_MONTH = +this.configService.get(
+      'WORK_DAYS_PER_MONTH',
+      26,
+    );
     this.WORK_HOURS_PER_DAY = +this.configService.get('WORK_HOURS_PER_DAY', 8);
     this.OVERTIME_RATE = +this.configService.get('OVERTIME_RATE', 1.5);
-    this.LATE_PENALTY_PER_MINUTE = +this.configService.get('LATE_PENALTY_PER_MINUTE', 2000);
-    this.ABSENCE_PENALTY_PER_DAY = +this.configService.get('ABSENCE_PENALTY_PER_DAY', 300000);
-    this.BONUS_WHEN_NO_LEAVE = +this.configService.get('BONUS_WHEN_NO_LEAVE', 500000);
+    this.LATE_PENALTY_PER_MINUTE = +this.configService.get(
+      'LATE_PENALTY_PER_MINUTE',
+      2000,
+    );
+    this.ABSENCE_PENALTY_PER_DAY = +this.configService.get(
+      'ABSENCE_PENALTY_PER_DAY',
+      300000,
+    );
+    this.BONUS_WHEN_NO_LEAVE = +this.configService.get(
+      'BONUS_WHEN_NO_LEAVE',
+      500000,
+    );
+    this.MAX_GENERATE_QUEUE = +this.configService.get('MAX_GENERATE_QUEUE', 10);
   }
 
   private async checkEmployeeExist(employeeId: string) {
@@ -70,14 +99,17 @@ export class SalaryService {
     delete filter.current;
     delete filter.pageSize;
 
-    const selectFields = getDtoSelect(Salary);
-    return paginate<Salary>(
+    const selectFields = getDtoSelect(SalaryResponse);
+    return paginate<SalaryResponse>(
       this.salaryModel,
       filter,
       sort,
       selectFields,
       current,
-      pageSize
+      pageSize,
+      {
+        dtoClass: SalaryResponse,
+      },
     );
   }
 
@@ -88,7 +120,71 @@ export class SalaryService {
     return this.salaryModel.find({ month }).populate('employeeId').exec();
   }
 
-  private async getEmployeeSalary(employeeId: string, month: string): Promise<Salary> {
+  async generateSalaryForEmployee(employeeId: string, month: string) {
+    const formatedMonth = DateHelper.format(new Date(month), 'yyyy-MM');
+    const salaryData = await this.getEmployeeSalary(employeeId, formatedMonth);
+
+    const result = await this.salaryModel.findOneAndUpdate(
+      {
+        employeeId: new Types.ObjectId(employeeId),
+        month: formatedMonth,
+      },
+      salaryData,
+      { new: true, upsert: true },
+    );
+
+    return result;
+  }
+
+  async generateSalaryForEmployees(employeeIds: string[], month: string) {
+    await runWithConcurrency(
+      employeeIds,
+      this.MAX_GENERATE_QUEUE,
+      async (employeeId) => {
+        try {
+          await this.generateSalaryForEmployee(employeeId, month);
+        } catch (error) {
+          if (error instanceof NotFoundException) return; // skip when employee not found
+          throw error; // re-throw other errors
+        }
+      },
+    );
+
+    return {
+      statusCode: HttpStatus.CREATED,
+      message: 'Salaries generated successfully',
+    };
+  }
+
+  async generateForAllEmoployees(month: string) {
+    const employees = await this.employeeModel
+      .find({ status: EmployeeStatusEnum.Active })
+      .select('_id')
+      .lean();
+    const ids = employees.map((e) => e._id.toString());
+    return this.generateSalaryForEmployees(ids, month);
+  }
+
+  async generateForDepartment(departmentIds: string[], month: string) {
+    // get employee ids
+    const employees = await this.employeeModel
+      .find({
+        departmentId: {
+          $in: departmentIds.map((id) => new Types.ObjectId(id)),
+        },
+        status: EmployeeStatusEnum.Active,
+      })
+      .select('_id')
+      .lean();
+    const ids = employees.map((e) => e._id.toString());
+
+    return this.generateSalaryForEmployees(ids, month);
+  }
+
+  private async getEmployeeSalary(
+    employeeId: string,
+    month: string,
+  ): Promise<Salary> {
     const { start, end } = this.getMonthRange(month);
 
     const selectFields = getDtoSelect(EmployeeSalaryDto).join(' ');
@@ -99,15 +195,18 @@ export class SalaryService {
       .populate('positionId', getDtoSelect(EmpSalaryPositionDto))
       .exec();
 
-    if (!employee) throw new NotFoundException('Employee not found', "EMPLOYEE_NOT_FOUND");
+    if (!employee)
+      throw new NotFoundException('Employee not found', 'EMPLOYEE_NOT_FOUND');
 
     // tính tổng số ngày nghỉ
-    const acceptedLeave = await this.leaveModel.find({
-      employeeId,
-      status: LeaveRequestStatus.Approved,
-      startDate: { $lt: end },
-      endDate: { $gte: start },
-    }).exec();
+    const acceptedLeave = await this.leaveModel
+      .find({
+        employeeId,
+        status: LeaveRequestStatus.Approved,
+        startDate: { $lt: end },
+        endDate: { $gte: start },
+      })
+      .exec();
 
     let totalLeaveDays = 0;
     for (const leave of acceptedLeave) {
@@ -115,7 +214,7 @@ export class SalaryService {
         leave.startDate.toISOString(),
         leave.endDate.toISOString(),
         start.toISOString(),
-        end.toISOString()
+        end.toISOString(),
       );
     }
 
@@ -123,10 +222,17 @@ export class SalaryService {
     const workingDates = await this.attendanceService.calculateWorkingDays(
       new Types.ObjectId(employeeId),
       start,
-      end
+      end,
     );
 
-    const { fullDay, overTimeHours, lateMinutes, halfDay, absentDay, totalDay } = workingDates;
+    const {
+      fullDay,
+      overTimeHours,
+      lateMinutes,
+      halfDay,
+      absentDay,
+      totalDay,
+    } = workingDates;
 
     // tính lương
     let dto = toDto(EmployeeSalaryDto, employee) as EmployeeSalaryDto;
@@ -135,14 +241,26 @@ export class SalaryService {
     if (dto.position && dto.position.salary) {
       baseSalary = dto.position.salary;
     }
-    const hourlyRate = baseSalary / (this.WORK_DAYS_PER_MONTH * this.WORK_HOURS_PER_DAY);
+    const hourlyRate =
+      baseSalary / (this.WORK_DAYS_PER_MONTH * this.WORK_HOURS_PER_DAY);
 
-    const bonus = (overTimeHours * hourlyRate * this.OVERTIME_RATE)
-      + (totalLeaveDays === 0 ? this.BONUS_WHEN_NO_LEAVE : 0);
+    const bonus = Math.max(
+      Math.ceil(
+        overTimeHours * hourlyRate * this.OVERTIME_RATE +
+          (totalLeaveDays === 0 ? this.BONUS_WHEN_NO_LEAVE : 0),
+      ),
+      0,
+    );
 
-    const deductions = (lateMinutes * this.LATE_PENALTY_PER_MINUTE)
-      + (absentDay * this.ABSENCE_PENALTY_PER_DAY);
-    const netSalary = baseSalary + bonus - deductions;
+    const deductions = Math.max(
+      Math.ceil(
+        lateMinutes * this.LATE_PENALTY_PER_MINUTE +
+          absentDay * this.ABSENCE_PENALTY_PER_DAY,
+      ),
+      0,
+    );
+
+    const netSalary = Math.max(totalDay * hourlyRate + bonus - deductions, 0);
 
     const result = Object.assign(new Salary(), {
       employeeId: new Types.ObjectId(employeeId),
@@ -165,7 +283,6 @@ export class SalaryService {
     return result;
   }
 
-
   private getMonthRange(month: string) {
     const [y, m] = month.split('-').map(Number);
     const start = new Date(Date.UTC(y, m - 1, 1, 0, 0, 0));
@@ -173,39 +290,13 @@ export class SalaryService {
     return { start, end };
   }
 
-  async generateSalaryForEmployee(employeeId: string, month: string) {
-    const salaryData = await this.getEmployeeSalary(employeeId, month);
-
-    const result = await this.salaryModel.findOneAndUpdate(
-      { employeeId: new Types.ObjectId(employeeId), month },
-      salaryData,
-      { new: true, upsert: true }
-    );
-
-    return result;
-  }
-
-  async generateForDepartment(departmentId: string, month: string) {
-    // get employee ids
-    const employees = await this.employeeModel.find({ departmentId }).select('_id').lean();
-    const ids = employees.map(e => e._id.toString());
-
-    const batchSize = 50;
-    for (let i = 0; i < ids.length; i += batchSize) {
-      const chunk = ids.slice(i, i + batchSize);
-      // process chunk sequentially or with limited concurrency
-      await Promise.all(chunk.map(id => this.generateSalaryForEmployee(id, month)));
-    }
-  }
-
-
   /**
-* Tính số ngày nghỉ nằm trong khoảng truyền vào
-* @param leaveStartStr Ngày bắt đầu nghỉ (yyyy/MM/dd)
-* @param leaveEndStr Ngày kết thúc nghỉ (yyyy/MM/dd)
-* @param rangeStartStr Ngày bắt đầu khoảng cần tính (yyyy/MM/dd)
-* @param rangeEndStr Ngày kết thúc khoảng cần tính (yyyy/MM/dd)
-*/
+   * Tính số ngày nghỉ nằm trong khoảng truyền vào
+   * @param leaveStartStr Ngày bắt đầu nghỉ (yyyy/MM/dd)
+   * @param leaveEndStr Ngày kết thúc nghỉ (yyyy/MM/dd)
+   * @param rangeStartStr Ngày bắt đầu khoảng cần tính (yyyy/MM/dd)
+   * @param rangeEndStr Ngày kết thúc khoảng cần tính (yyyy/MM/dd)
+   */
   private calculateLeaveDaysInRange(
     leaveStartStr: string,
     leaveEndStr: string,
@@ -230,5 +321,4 @@ export class SalaryService {
     const diffMs = effectiveEnd.getTime() - effectiveStart.getTime();
     return Math.floor(diffMs / (1000 * 60 * 60 * 24)) + 1;
   }
-
 }

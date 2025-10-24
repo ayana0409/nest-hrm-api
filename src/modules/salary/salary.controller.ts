@@ -11,7 +11,7 @@ import { SalaryService } from './salary.service';
 
 @Controller('salary')
 export class SalaryController {
-  constructor(private readonly salaryService: SalaryService) { }
+  constructor(private readonly salaryService: SalaryService) {}
 
   @Delete(':id')
   async delete(@Param('id') id: string) {
@@ -22,18 +22,37 @@ export class SalaryController {
   findAll(
     @Query() query: string,
     @Query('current') current: number,
-    @Query('pageSize') pageSize: number) {
+    @Query('pageSize') pageSize: number,
+  ) {
     return this.salaryService.findAll(query, +current, +pageSize);
   }
 
-  @Post('employee/:employeeId/:month')
-  async genForEmployee(@Param('employeeId') employeeId: string, @Param('month') month: string) {
+  @Post()
+  async genForEmployee(
+    @Body('employeeId') employeeId: string,
+    @Body('month') month: string,
+  ) {
     return this.salaryService.generateSalaryForEmployee(employeeId, month);
   }
 
-  @Post('department/:departmentId/:month')
-  async genForDepartment(@Param('departmentId') departmentId: string, @Param('month') month: string) {
-    return this.salaryService.generateForDepartment(departmentId, month);
+  @Post('bulk')
+  async generateSalariesForEmployees(
+    @Body('month') month: string,
+    @Body('employeeIds') employeeIds: string[],
+  ) {
+    return this.salaryService.generateSalaryForEmployees(employeeIds, month);
   }
 
+  @Post('generate/:month')
+  async generateSalariesForAllEmployees(@Param('month') month: string) {
+    return this.salaryService.generateForAllEmoployees(month);
+  }
+
+  @Post('by-department')
+  async generateSalariesByDepartment(
+    @Body('departmentIds') departmentIds: string[],
+    @Body('month') month: string,
+  ) {
+    return this.salaryService.generateForDepartment(departmentIds, month);
+  }
 }
