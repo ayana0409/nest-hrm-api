@@ -27,6 +27,15 @@ export class SalaryController {
     return this.salaryService.findAll(query, +current, +pageSize);
   }
 
+  @Get('range')
+  findByEmpIdRange(
+    @Query('employeeId') employeeId: string,
+    @Query('start') start: string,
+    @Query('end') end: string,
+  ) {
+    return this.salaryService.findDaysByEmpIdRange(employeeId, start, end);
+  }
+
   @Post()
   async genForEmployee(
     @Body('employeeId') employeeId: string,

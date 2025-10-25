@@ -30,6 +30,7 @@ import { runWithConcurrency } from '@/common/helpers/promise.helper';
 import { EmployeeStatusEnum } from '@/common/enum/employee-status..enum';
 import SalaryResponse from './dto/salary-response';
 import { DateHelper } from '@/common/helpers/dateHelper';
+import EmpDays from './dto/emp-days.dto';
 
 @Injectable()
 export class SalaryService {
@@ -74,16 +75,6 @@ export class SalaryService {
     this.MAX_GENERATE_QUEUE = +this.configService.get('MAX_GENERATE_QUEUE', 10);
   }
 
-  private async checkEmployeeExist(employeeId: string) {
-    if (!Types.ObjectId.isValid(employeeId)) {
-      throw new BadRequestException('Invalid employeeId');
-    }
-    const employee = await this.employeeModel.findById(employeeId);
-    if (!employee) {
-      throw new NotFoundException('Employee not found');
-    }
-  }
-
   async delete(id: string): Promise<void> {
     const res = await this.salaryModel.findByIdAndDelete(id);
     if (!res) throw new NotFoundException('Salary not found');
@@ -93,6 +84,7 @@ export class SalaryService {
     await this.checkEmployeeExist(employeeId);
     return this.salaryModel.find({ employeeId }).exec();
   }
+
   async findAll(query: string, current = 1, pageSize = 10) {
     let { filter, sort } = aqp(query);
     delete filter.current;
@@ -117,6 +109,19 @@ export class SalaryService {
       throw new BadRequestException('Month must be in format YYYY-MM');
     }
     return this.salaryModel.find({ month }).populate('employeeId').exec();
+  }
+
+  async findDaysByEmpIdRange(employeeId: string, start: string, end: string) {
+    const formatedStart = DateHelper.format(new Date(start), 'yyyy-MM');
+    const formatedEnd = DateHelper.format(new Date(end), 'yyyy-MM');
+    const selectedField = getDtoSelect(EmpDays);
+    const result = await this.salaryModel
+      .find({
+        employeeId,
+        month: { $gte: formatedStart, $lte: formatedEnd },
+      })
+      .select(selectedField);
+    return toDto(EmpDays, result);
   }
 
   async generateSalaryForEmployee(employeeId: string, month: string) {
@@ -178,6 +183,16 @@ export class SalaryService {
     const ids = employees.map((e) => e._id.toString());
 
     return this.generateSalaryForEmployees(ids, month);
+  }
+
+  private async checkEmployeeExist(employeeId: string) {
+    if (!Types.ObjectId.isValid(employeeId)) {
+      throw new BadRequestException('Invalid employeeId');
+    }
+    const employee = await this.employeeModel.findById(employeeId);
+    if (!employee) {
+      throw new NotFoundException('Employee not found');
+    }
   }
 
   private async getEmployeeSalary(
