@@ -291,40 +291,61 @@ export class AttendanceService {
     let lateMinutes = 0;
     let overTimeHours = 0;
 
+    // format attendance yyyy-MM-dd
+    const attendanceMap = new Map<string, any>();
     for (const att of attendances) {
-      switch (att.status) {
-        case AttendanceStatus.CheckOut:
-          fullDay += 1;
-          break;
-        case AttendanceStatus.HalfDay:
-          halfDay += 1;
-          break;
-        case AttendanceStatus.Absent:
-          absent += 1;
-          break;
-        case AttendanceStatus.Late:
-          fullDay += 1;
-          if (att.checkIn) {
-            const late =
-              att.checkIn.getHours() * 60 +
-              att.checkIn.getMinutes() -
-              this.WORK_START_HOUR * 60;
-            if (late > this.LATE_THRESHOLD_MINUTES) {
-              lateMinutes += late;
+      const key = att.date.toISOString().split('T')[0];
+      attendanceMap.set(key, att);
+    }
+
+    // Map for each day
+    const current = new Date(startDate);
+    while (current <= endDate) {
+      const key = current.toISOString().split('T')[0];
+      const att = attendanceMap.get(key);
+
+      if (att) {
+        // have data => caculate
+        switch (att.status) {
+          case AttendanceStatus.CheckOut:
+            fullDay += 1;
+            break;
+          case AttendanceStatus.HalfDay:
+            halfDay += 1;
+            break;
+          case AttendanceStatus.Absent:
+            absent += 1;
+            break;
+          case AttendanceStatus.Late:
+            fullDay += 1;
+            if (att.checkIn) {
+              const late =
+                att.checkIn.getHours() * 60 +
+                att.checkIn.getMinutes() -
+                this.WORK_START_HOUR * 60;
+              if (late > this.LATE_THRESHOLD_MINUTES) {
+                lateMinutes += late;
+              }
             }
+            break;
+          default:
+            break;
+        }
+
+        if (att.checkOut) {
+          const outHour =
+            att.checkOut.getHours() + att.checkOut.getMinutes() / 60;
+          if (outHour > this.WORK_END_HOUR) {
+            overTimeHours += outHour - this.WORK_END_HOUR;
           }
-          break;
-        default:
-          break;
+        }
+      } else {
+        // no data => absent
+        absent += 1;
       }
 
-      if (att.checkOut) {
-        const outHour =
-          att.checkOut.getHours() + att.checkOut.getMinutes() / 60;
-        if (outHour > this.WORK_END_HOUR) {
-          overTimeHours += outHour - this.WORK_END_HOUR;
-        }
-      }
+      // next date
+      current.setDate(current.getDate() + 1);
     }
 
     const totalWorkDays = fullDay + halfDay * 0.5;
