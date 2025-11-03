@@ -94,8 +94,9 @@ export class NotificationService {
 
     // --- Nếu là tin gửi hàng loạt (POSITION/DEPARTMENT) thì gom theo batchKey ---
     if (
-      filter.targetType === NotificationType.POSITION ||
-      filter.targetType === NotificationType.DEPARTMENT
+      (filter.targetType === NotificationType.POSITION ||
+        filter.targetType === NotificationType.DEPARTMENT) &&
+      !filter.userId
     ) {
       pipeline.push({
         $group: {
@@ -117,9 +118,11 @@ export class NotificationService {
     // --- Chọn field cần thiết ---
     pipeline.push({
       $project: {
+        _id: 1,
         message: 1,
         read: 1,
         createdAt: 1,
+        updatedAt: 1,
         targetType: 1,
         targetId: 1,
         'user.fullName': 1,
