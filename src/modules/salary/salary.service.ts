@@ -239,14 +239,16 @@ export class SalaryService {
       end,
     );
 
-    const {
-      fullDay,
-      overTimeHours,
-      lateMinutes,
-      halfDay,
-      absentDay,
-      totalDay,
-    } = workingDates;
+    let { fullDay, overTimeHours, lateMinutes, halfDay, absentDay, totalDay } =
+      workingDates;
+
+    if (absentDay <= 4) {
+      absentDay = 0;
+      totalLeaveDays += absentDay;
+    } else {
+      absentDay -= 4;
+      totalLeaveDays += 4;
+    }
 
     // tính lương
     let dto = toDto(EmployeeSalaryDto, employee) as EmployeeSalaryDto;
@@ -259,10 +261,11 @@ export class SalaryService {
       baseSalary / (this.WORK_DAYS_PER_MONTH * this.WORK_HOURS_PER_DAY);
 
     const bonus = Math.max(
-      Math.ceil(
-        overTimeHours * hourlyRate * this.OVERTIME_RATE +
-          (totalLeaveDays === 0 ? this.BONUS_WHEN_NO_LEAVE : 0),
-      ),
+      Math.round(
+        (overTimeHours * hourlyRate * this.OVERTIME_RATE +
+          (totalLeaveDays + absentDay <= 4 ? this.BONUS_WHEN_NO_LEAVE : 0)) /
+          1000,
+      ) * 1000,
       0,
     );
 
@@ -274,7 +277,10 @@ export class SalaryService {
       0,
     );
 
-    const netSalary = Math.max(totalDay * hourlyRate + bonus - deductions, 0);
+    const netSalary = Math.max(
+      totalDay * this.WORK_HOURS_PER_DAY * hourlyRate + bonus - deductions,
+      0,
+    );
 
     const result = Object.assign(new Salary(), {
       employeeId: employeeId,
@@ -292,6 +298,9 @@ export class SalaryService {
       bonus,
       deductions,
       netSalary,
+      latePenaltyPerMinute: this.LATE_PENALTY_PER_MINUTE,
+      absencePenaltyPerDate: this.ABSENCE_PENALTY_PER_DAY,
+      overTimeRate: this.OVERTIME_RATE,
     });
 
     return result;
@@ -300,7 +309,7 @@ export class SalaryService {
   private getMonthRange(month: string) {
     const [y, m] = month.split('-').map(Number);
     const start = new Date(Date.UTC(y, m - 1, 1, 0, 0, 0));
-    const end = new Date(Date.UTC(y, m, 1, 0, 0, 0));
+    const end = new Date(Date.UTC(y, m, 0, 23, 59, 59, 999));
     return { start, end };
   }
 

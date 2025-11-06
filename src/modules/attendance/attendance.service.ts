@@ -356,7 +356,7 @@ export class AttendanceService {
       halfDay,
       absentDay: absent,
       lateMinutes,
-      overTimeHours,
+      overTimeHours: Math.round(overTimeHours),
       totalDay: totalWorkDays,
     });
   }
