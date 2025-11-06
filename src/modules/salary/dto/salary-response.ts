@@ -49,4 +49,13 @@ export default class SalaryResponse {
 
   @Expose()
   netSalary: number;
+
+  @Expose()
+  latePenaltyPerMinute: number;
+
+  @Expose()
+  absencePenaltyPerDate: number;
+
+  @Expose()
+  overTimeRate: number;
 }

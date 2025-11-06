@@ -23,6 +23,15 @@ export class Salary {
   @Prop({ type: String })
   level: string;
 
+  @Prop({ type: Number, required: true, min: 0, default: 0 })
+  latePenaltyPerMinute: number;
+
+  @Prop({ type: Number, required: true, min: 0, default: 0 })
+  absencePenaltyPerDate: number;
+
+  @Prop({ type: Number, required: true, min: 0, default: 0 })
+  overTimeRate: number;
+
   @Prop({ type: Number })
   workDates: number;
 
