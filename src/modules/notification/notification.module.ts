@@ -9,6 +9,7 @@ import {
 import { User, UserSchema } from '../user/schema/user.schema';
 import { Employee, EmployeeSchema } from '../employee/schema/employee.schema';
 import { NotificationGateway } from './notification.gateway';
+import { LeaveRequestUpdatedListener } from './listeners/leave-request-updeate.listener';
 
 @Module({
   imports: [
@@ -19,6 +20,10 @@ import { NotificationGateway } from './notification.gateway';
     ]),
   ],
   controllers: [NotificationController],
-  providers: [NotificationService, NotificationGateway],
+  providers: [
+    NotificationService,
+    NotificationGateway,
+    LeaveRequestUpdatedListener,
+  ],
 })
 export class NotificationModule {}

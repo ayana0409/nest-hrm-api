@@ -18,7 +18,7 @@ import {
 } from '@/modules/employee/schema/employee.schema';
 import { loadImage } from 'canvas';
 import { resizeImage } from '@/common/helpers/image-helper';
-import { EmployeeEventEnum } from '@/modules/employee/dto/employee.event';
+import { EmployeeEventEnum } from '@/common/event/employee.event';
 import { OnEvent } from '@nestjs/event-emitter';
 
 @Injectable()

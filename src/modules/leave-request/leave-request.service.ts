@@ -15,7 +15,11 @@ import { plainToInstance } from 'class-transformer';
 import { getDtoSelect } from '@/common/helpers/dtoHelper';
 import { LeaveRequestResponseDto } from './dto/leave-request-response.dto';
 import { paginateAggregate } from '@/common/helpers/paginationHelper';
-import aqp from 'api-query-params';
+import { EventEmitter2 } from '@nestjs/event-emitter';
+import {
+  LeaveRequestEventEnum,
+  LeaveRequestUpdatedPayload,
+} from '../../common/event/leave-request.event';
 
 @Injectable()
 export class LeaveRequestService {
@@ -24,6 +28,7 @@ export class LeaveRequestService {
     private leaveModel: Model<LeaveRequestDocument>,
     @InjectModel(employeeSchema.Employee.name)
     private readonly employeeModel: employeeSchema.EmployeeModel,
+    private readonly eventEmitter: EventEmitter2,
   ) {}
 
   async create(dto: CreateLeaveRequestDto): Promise<LeaveRequest> {
@@ -160,6 +165,11 @@ export class LeaveRequestService {
         'Leave request not found',
         'LEAVE_REQUEST_NOT_FOUND',
       );
+
+    this.eventEmitter.emit(
+      LeaveRequestEventEnum.Update,
+      new LeaveRequestUpdatedPayload(id, result.employeeId.toString(), status),
+    );
 
     return result;
   }

@@ -20,7 +20,7 @@ import { validateForeignKey } from '@/common/helpers/validateHelper';
 import { EmpPositionDto } from './dto/emp-position.dto';
 import { EmpDepartmentDto } from './dto/emp-department.dto';
 import { EventEmitter2 } from '@nestjs/event-emitter';
-import { EmployeeEventEnum } from './dto/employee.event';
+import { EmployeeEventEnum } from '../../common/event/employee.event';
 import { EmpFaceService } from '@/services/face/emp-face.service';
 import { CloudinaryService } from '@/services/cloud/cloundinary.service';
 import { resizeImageToRatio } from '@/common/helpers/image-helper';
