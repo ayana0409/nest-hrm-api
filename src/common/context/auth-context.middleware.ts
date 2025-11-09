@@ -16,7 +16,6 @@ export class AuthContextMiddleware implements NestMiddleware {
             token,
             process.env.JWT_ACCESS_SECRET!,
           );
-          console.log('DECODE', decoded);
           RequestContextService.set('userId', decoded.sub || decoded.userId);
           RequestContextService.set('email', decoded.email);
           RequestContextService.set('name', decoded.name);
