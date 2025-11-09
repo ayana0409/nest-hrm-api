@@ -18,15 +18,20 @@ import { EmployeeResponseDto } from '../employee/dto/employee-response.dto';
 import * as employeeSchema from '../employee/schema/employee.schema';
 import { UserEmployeeDto } from './dto/user-employee.dto';
 import { ConfigService } from '@nestjs/config';
+import { EventEmitter2 } from '@nestjs/event-emitter';
+import { AuditEvent, AuditAction } from '@/common/event/audit-log.event';
+import { data } from '@tensorflow/tfjs';
 
 @Injectable()
 export class UserService {
+  private readonly MODULE_NAME = 'user';
   constructor(
     @InjectModel(User.name) private userModel: Model<User>,
     @InjectModel(employeeSchema.Employee.name)
     private employeeModel: employeeSchema.EmployeeModel,
     private readonly configService: ConfigService,
     private readonly passwordHelper: PasswordHelper,
+    private readonly eventEmitter: EventEmitter2,
   ) {}
 
   async create(createUserDto: CreateUserDto) {
@@ -40,6 +45,13 @@ export class UserService {
     );
     createUserDto.employeeId = new Types.ObjectId(createUserDto.employeeId);
     const user = await this.userModel.create(createUserDto);
+
+    this.eventEmitter.emit(AuditEvent.Log, {
+      module: this.MODULE_NAME,
+      action: AuditAction.CREATE,
+      entityId: user._id,
+      data: createUserDto,
+    });
 
     return toDto(UserResponseDto, user);
   }
@@ -119,6 +131,13 @@ export class UserService {
       });
     }
 
+    this.eventEmitter.emit(AuditEvent.Log, {
+      module: this.MODULE_NAME,
+      action: AuditAction.UPDATE,
+      entityId: id,
+      data: updateUserDto,
+    });
+
     return toDto(UserResponseDto, user);
   }
 
@@ -130,6 +149,12 @@ export class UserService {
         errorCode: 'USER_NOT_FOUND',
       });
     }
+
+    this.eventEmitter.emit(AuditEvent.Log, {
+      module: this.MODULE_NAME,
+      action: AuditAction.DELETE,
+      entityId: id,
+    });
 
     return toDto(UserResponseDto, user);
   }
@@ -151,6 +176,14 @@ export class UserService {
         errorCode: 'USER_NOT_FOUND',
       });
     }
+
+    this.eventEmitter.emit(AuditEvent.Log, {
+      module: this.MODULE_NAME,
+      action: AuditAction.UPDATE,
+      entityId: result._id,
+      data: 'change password',
+    });
+
     return toDto(UserResponseDto, result);
   }
 

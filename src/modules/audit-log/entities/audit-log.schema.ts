@@ -3,13 +3,16 @@ import { HydratedDocument, Types } from 'mongoose';
 
 export type AuditLogDocument = HydratedDocument<AuditLog>;
 
-@Schema({ timestamps: true })
+@Schema()
 export class AuditLog {
   @Prop({ type: Types.ObjectId, ref: 'User', index: true })
   userId?: Types.ObjectId;
 
   @Prop({ required: true })
   action: string;
+
+  @Prop({ required: true })
+  module: string;
 
   @Prop({ required: true })
   entityId: string;

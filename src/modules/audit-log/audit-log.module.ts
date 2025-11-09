@@ -3,6 +3,7 @@ import { AuditLogService } from './audit-log.service';
 import { AuditLogController } from './audit-log.controller';
 import { MongooseModule } from '@nestjs/mongoose';
 import { AuditLog, AuditLogSchema } from './entities/audit-log.schema';
+import { AuditLogListener } from './audit-log.listener';
 
 @Module({
   imports: [
@@ -11,6 +12,6 @@ import { AuditLog, AuditLogSchema } from './entities/audit-log.schema';
     ]),
   ],
   controllers: [AuditLogController],
-  providers: [AuditLogService],
+  providers: [AuditLogService, AuditLogListener],
 })
 export class AuditLogModule {}

@@ -1,4 +1,8 @@
-import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { Department } from './schema/department.schema';
@@ -9,17 +13,28 @@ import { getDtoSelect } from '@/common/helpers/dtoHelper';
 import aqp from 'api-query-params';
 import { toDto } from '@/common/helpers/transformHelper';
 import { paginate } from '@/common/helpers/paginationHelper';
+import { AuditAction, AuditEvent } from '@/common/event/audit-log.event';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 
 @Injectable()
 export class DepartmentService {
+  private readonly MODULE_NAME = 'department';
   constructor(
     @InjectModel(Department.name) private departmentModel: Model<Department>,
+    private readonly eventEmitter: EventEmitter2,
   ) {}
 
   async create(createDto: CreateDepartmentDto): Promise<DepartmentResponseDto> {
     await this.checkDuplicateName(createDto.name);
 
     const department = await this.departmentModel.create(createDto);
+
+    this.eventEmitter.emit(AuditEvent.Log, {
+      module: this.MODULE_NAME,
+      action: AuditAction.CREATE,
+      entityId: department._id,
+      data: createDto,
+    });
     return toDto(DepartmentResponseDto, department);
   }
 
@@ -49,7 +64,10 @@ export class DepartmentService {
     }
 
     const selectFields = getDtoSelect(DepartmentResponseDto).join(' ');
-    const department = await this.departmentModel.findById(id).select(selectFields).exec();
+    const department = await this.departmentModel
+      .findById(id)
+      .select(selectFields)
+      .exec();
 
     if (!department) {
       throw new NotFoundException({
@@ -61,7 +79,10 @@ export class DepartmentService {
     return toDto(DepartmentResponseDto, department);
   }
 
-  async update(id: string, updateDto: UpdateDepartmentDto): Promise<DepartmentResponseDto> {
+  async update(
+    id: string,
+    updateDto: UpdateDepartmentDto,
+  ): Promise<DepartmentResponseDto> {
     if (updateDto.name) {
       await this.checkDuplicateName(updateDto.name, id);
     }
@@ -77,6 +98,13 @@ export class DepartmentService {
       });
     }
 
+    this.eventEmitter.emit(AuditEvent.Log, {
+      module: this.MODULE_NAME,
+      action: AuditAction.UPDATE,
+      entityId: id,
+      data: updateDto,
+    });
+
     return toDto(DepartmentResponseDto, department);
   }
 
@@ -88,6 +116,13 @@ export class DepartmentService {
         errorCode: 'DEPARTMENT_NOT_FOUND',
       });
     }
+
+    this.eventEmitter.emit(AuditEvent.Log, {
+      module: this.MODULE_NAME,
+      action: AuditAction.DELETE,
+      entityId: id,
+    });
+
     return toDto(DepartmentResponseDto, department);
   }
 

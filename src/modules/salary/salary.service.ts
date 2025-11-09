@@ -31,6 +31,8 @@ import { EmployeeStatusEnum } from '@/common/enum/employee-status..enum';
 import SalaryResponse from './dto/salary-response';
 import { DateHelper } from '@/common/helpers/dateHelper';
 import EmpDays from './dto/emp-days.dto';
+import { EventEmitter2 } from '@nestjs/event-emitter';
+import { AuditAction, AuditEvent } from '@/common/event/audit-log.event';
 
 @Injectable()
 export class SalaryService {
@@ -41,6 +43,7 @@ export class SalaryService {
   private readonly ABSENCE_PENALTY_PER_DAY: number;
   private readonly BONUS_WHEN_NO_LEAVE: number;
   private readonly MAX_GENERATE_QUEUE: number;
+  private readonly MODULE_NAME = 'service';
 
   constructor(
     private readonly configService: ConfigService,
@@ -53,6 +56,7 @@ export class SalaryService {
     private attendanceModel: Model<AttendanceDocument>,
     @InjectModel(LeaveRequest.name)
     private leaveModel: Model<LeaveRequestDocument>,
+    private readonly eventEmitter: EventEmitter2,
   ) {
     this.WORK_DAYS_PER_MONTH = +this.configService.get(
       'WORK_DAYS_PER_MONTH',
@@ -136,6 +140,13 @@ export class SalaryService {
       salaryData,
       { new: true, upsert: true },
     );
+
+    this.eventEmitter.emit(AuditEvent.Log, {
+      module: this.MODULE_NAME,
+      action: AuditAction.CREATE,
+      entityId: result._id,
+      data: employeeId,
+    });
 
     return result;
   }

@@ -1,4 +1,8 @@
-import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { Position } from './schema/position.schema';
@@ -9,17 +13,29 @@ import { getDtoSelect } from '@/common/helpers/dtoHelper';
 import aqp from 'api-query-params';
 import { toDto } from '@/common/helpers/transformHelper';
 import { paginate } from '@/common/helpers/paginationHelper';
+import { EventEmitter2 } from '@nestjs/event-emitter';
+import { AuditEvent, AuditAction } from '@/common/event/audit-log.event';
 
 @Injectable()
 export class PositionService {
+  private readonly MODULE_NAME = 'position';
   constructor(
     @InjectModel(Position.name) private positionModel: Model<Position>,
+    private readonly eventEmitter: EventEmitter2,
   ) {}
 
   async create(createDto: CreatePositionDto): Promise<PositionResponseDto> {
     await this.checkDuplicateTitle(createDto.title);
 
     const position = await this.positionModel.create(createDto);
+
+    this.eventEmitter.emit(AuditEvent.Log, {
+      module: this.MODULE_NAME,
+      action: AuditAction.CREATE,
+      entityId: position._id,
+      data: createDto,
+    });
+
     return toDto(PositionResponseDto, position);
   }
 
@@ -49,7 +65,10 @@ export class PositionService {
     }
 
     const selectFields = getDtoSelect(PositionResponseDto).join(' ');
-    const position = await this.positionModel.findById(id).select(selectFields).exec();
+    const position = await this.positionModel
+      .findById(id)
+      .select(selectFields)
+      .exec();
 
     if (!position) {
       throw new NotFoundException({
@@ -61,7 +80,10 @@ export class PositionService {
     return toDto(PositionResponseDto, position);
   }
 
-  async update(id: string, updateDto: UpdatePositionDto): Promise<PositionResponseDto> {
+  async update(
+    id: string,
+    updateDto: UpdatePositionDto,
+  ): Promise<PositionResponseDto> {
     if (updateDto.title) {
       await this.checkDuplicateTitle(updateDto.title, id);
     }
@@ -77,6 +99,13 @@ export class PositionService {
       });
     }
 
+    this.eventEmitter.emit(AuditEvent.Log, {
+      module: this.MODULE_NAME,
+      action: AuditAction.UPDATE,
+      entityId: id,
+      data: updateDto,
+    });
+
     return toDto(PositionResponseDto, position);
   }
 
@@ -88,6 +117,13 @@ export class PositionService {
         errorCode: 'POSITION_NOT_FOUND',
       });
     }
+
+    this.eventEmitter.emit(AuditEvent.Log, {
+      module: this.MODULE_NAME,
+      action: AuditAction.UPDATE,
+      entityId: id,
+    });
+
     return toDto(PositionResponseDto, position);
   }
 

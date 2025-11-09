@@ -16,7 +16,9 @@ import { CacheModule } from '@nestjs/cache-manager';
 import { redisStore } from 'cache-manager-redis-yet';
 import { EventEmitterModule } from '@nestjs/event-emitter';
 import { AuditLogModule } from './modules/audit-log/audit-log.module';
-import { RequestContextMiddleware } from './common/context/request-context.middleware';
+import { AuthContextMiddleware } from './common/context/auth-context.middleware';
+import { RequestContextService } from './common/context/request-context';
+import { RequestContextModule } from './common/context/request-context.module';
 
 @Module({
   imports: [
@@ -70,12 +72,13 @@ import { RequestContextMiddleware } from './common/context/request-context.middl
     AuthModule,
     EventEmitterModule.forRoot(),
     AuditLogModule,
+    RequestContextModule,
   ],
   controllers: [AppController],
   providers: [AppService],
 })
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {
-    consumer.apply(RequestContextMiddleware).forRoutes('*');
+    consumer.apply(AuthContextMiddleware).forRoutes('*');
   }
 }

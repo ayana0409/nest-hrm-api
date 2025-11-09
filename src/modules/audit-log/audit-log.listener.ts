@@ -1,27 +1,26 @@
 import { AuditEvent, AuditLogPayload } from '@/common/event/audit-log.event';
-import { Injectable } from '@nestjs/common';
+import { Injectable, Scope } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
 import { AuditLogService } from './audit-log.service';
-import { RequestContext } from '@/common/context/request-context';
+import { RequestContextService } from '@/common/context/request-context';
 
 @Injectable()
 export class AuditLogListener {
-  constructor(private readonly auditLogService: AuditLogService) {}
+  constructor(
+    private readonly auditLogService: AuditLogService,
+    private readonly requestContext: RequestContextService,
+  ) {}
 
   @OnEvent(AuditEvent.Log)
   async handle(payload: AuditLogPayload) {
-    // Ghi log vào DB, file, hoặc gửi đến hệ thống log tập trung
-    console.log(
-      `[${payload.timestamp}] ${payload.performedBy} ${payload.action} ${payload.module} ${payload.entityId}`,
-    );
-
+    const userId = this.requestContext.getUserId();
     this.auditLogService.create({
       action: payload.action,
       entityId: payload.entityId,
-      timestamp: payload.timestamp,
-      details: payload.data,
-      userId: RequestContext.getUserId(),
+      timestamp: new Date(),
+      details: JSON.stringify(payload.data),
+      userId: userId,
+      module: payload.module,
     });
-    // Hoặc gọi service để lưu vào bảng audit_logs
   }
 }

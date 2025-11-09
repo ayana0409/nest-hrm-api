@@ -24,8 +24,10 @@ import { EmployeeEventEnum } from '../../common/event/employee.event';
 import { EmpFaceService } from '@/services/face/emp-face.service';
 import { CloudinaryService } from '@/services/cloud/cloundinary.service';
 import { resizeImageToRatio } from '@/common/helpers/image-helper';
+import { AuditAction, AuditEvent } from '@/common/event/audit-log.event';
 @Injectable()
 export class EmployeeService {
+  private readonly MODULE_NAME = 'employee';
   constructor(
     @InjectModel(Employee.name) private employeeModel: Model<Employee>,
     @InjectModel(Position.name) private positionModel: Model<Position>,
@@ -47,6 +49,14 @@ export class EmployeeService {
     this.eventEmitter.emit(EmployeeEventEnum.Create, {
       employeeId: employee._id.toString(),
     });
+
+    this.eventEmitter.emit(AuditEvent.Log, {
+      module: this.MODULE_NAME,
+      action: AuditAction.CREATE,
+      entityId: employee._id,
+      data: createDto,
+    });
+
     return toDto(EmployeeResponseDto, employee);
   }
 
@@ -69,6 +79,12 @@ export class EmployeeService {
         employeeId: employee._id.toString(),
       });
 
+      this.eventEmitter.emit(AuditEvent.Log, {
+        module: this.MODULE_NAME,
+        action: AuditAction.CREATE,
+        entityId: employeeId,
+        data: 'Registor face',
+      });
       return { success: true, message: 'Đăng ký khuôn mặt thành công' };
     } catch (error) {
       throw new BadRequestException('Lỗi đăng ký khuôn mặt: ' + error.message);
@@ -143,6 +159,14 @@ export class EmployeeService {
     this.eventEmitter.emit(EmployeeEventEnum.Update, {
       employeeId: employee._id.toString(),
     });
+
+    this.eventEmitter.emit(AuditEvent.Log, {
+      module: this.MODULE_NAME,
+      action: AuditAction.UPDATE,
+      entityId: id,
+      data: updateDto,
+    });
+
     return toDto(EmployeeResponseDto, employee);
   }
 
@@ -169,6 +193,13 @@ export class EmployeeService {
     employee.avatarPublicId = uploadResult.public_id;
     await employee.save();
 
+    this.eventEmitter.emit(AuditEvent.Log, {
+      module: this.MODULE_NAME,
+      action: AuditAction.UPDATE,
+      entityId: employeeId,
+      data: uploadResult.secure_url,
+    });
+
     return uploadResult.secure_url;
   }
 
@@ -178,6 +209,13 @@ export class EmployeeService {
     this.eventEmitter.emit(EmployeeEventEnum.Delete, {
       employeeId: employee._id.toString(),
     });
+
+    this.eventEmitter.emit(AuditEvent.Log, {
+      module: this.MODULE_NAME,
+      action: AuditAction.DELETE,
+      entityId: id,
+    });
+
     return toDto(EmployeeResponseDto, employee);
   }
 }

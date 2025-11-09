@@ -20,9 +20,11 @@ import {
   LeaveRequestEventEnum,
   LeaveRequestUpdatedPayload,
 } from '../../common/event/leave-request.event';
+import { AuditAction, AuditEvent } from '@/common/event/audit-log.event';
 
 @Injectable()
 export class LeaveRequestService {
+  private readonly MODULE_NAME = 'leave-request';
   constructor(
     @InjectModel(LeaveRequest.name)
     private leaveModel: Model<LeaveRequestDocument>,
@@ -40,6 +42,13 @@ export class LeaveRequestService {
     if (dto.startDate > dto.endDate) {
       throw new BadRequestException('startDate must be before endDate');
     }
+    const result = await this.leaveModel.create(dto);
+    this.eventEmitter.emit(AuditEvent.Log, {
+      module: this.MODULE_NAME,
+      action: AuditAction.CREATE,
+      entityId: result._id,
+      data: dto,
+    });
     return this.leaveModel.create(dto);
   }
 
@@ -171,6 +180,13 @@ export class LeaveRequestService {
       new LeaveRequestUpdatedPayload(id, result.employeeId.toString(), status),
     );
 
+    this.eventEmitter.emit(AuditEvent.Log, {
+      module: this.MODULE_NAME,
+      action: AuditAction.UPDATE,
+      entityId: id,
+      data: status,
+    });
+
     return result;
   }
 
@@ -193,12 +209,25 @@ export class LeaveRequestService {
         'LEAVE_REQUEST_NOT_FOUND',
       );
 
+    this.eventEmitter.emit(AuditEvent.Log, {
+      module: this.MODULE_NAME,
+      action: AuditAction.UPDATE,
+      entityId: id,
+      data: dto,
+    });
+
     return leave;
   }
 
   async remove(id: string) {
     var result = this.leaveModel.findByIdAndDelete(id);
     if (!result) throw new NotFoundException('Leave request not found');
+
+    this.eventEmitter.emit(AuditEvent.Log, {
+      module: this.MODULE_NAME,
+      action: AuditAction.DELETE,
+      entityId: id,
+    });
 
     return result;
   }

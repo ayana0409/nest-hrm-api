@@ -16,12 +16,15 @@ import { DateHelper } from '@/common/helpers/dateHelper';
 import { EmpAttendanceDto } from './dto/emp-attendance.dto';
 import { ConfigService } from '@nestjs/config';
 import { EmpFaceService } from '@/services/face/emp-face.service';
+import { EventEmitter2 } from '@nestjs/event-emitter';
+import { AuditEvent, AuditAction } from '@/common/event/audit-log.event';
 
 @Injectable()
 export class AttendanceService {
   private readonly LATE_THRESHOLD_MINUTES: number;
   private readonly WORK_START_HOUR: number;
   private readonly WORK_END_HOUR: number;
+  private readonly MODULE_NAME = 'department';
 
   last: number;
   constructor(
@@ -31,6 +34,7 @@ export class AttendanceService {
     @InjectModel(Employee.name)
     private readonly employeeModel: Model<EmployeeDocument>,
     private readonly empFaceDetectionService: EmpFaceService,
+    private readonly eventEmitter: EventEmitter2,
   ) {
     this.LATE_THRESHOLD_MINUTES = +this.configService.get(
       'LATE_THRESHOLD_MINUTES',
@@ -48,6 +52,14 @@ export class AttendanceService {
 
     createDto.employeeId = new Types.ObjectId(createDto.employeeId);
     const attendance = await this.attendanceModel.create(createDto);
+
+    this.eventEmitter.emit(AuditEvent.Log, {
+      module: this.MODULE_NAME,
+      action: AuditAction.CREATE,
+      entityId: attendance._id,
+      data: createDto,
+    });
+
     return attendance.toJSON();
   }
 
@@ -258,12 +270,26 @@ export class AttendanceService {
       .lean();
 
     if (!att) throw new NotFoundException(`Attendance ${id} not found`);
+
+    this.eventEmitter.emit(AuditEvent.Log, {
+      module: this.MODULE_NAME,
+      action: AuditAction.UPDATE,
+      entityId: id,
+      data: updateDto,
+    });
+
     return att;
   }
 
   async remove(id: string) {
     const result = await this.attendanceModel.findByIdAndDelete(id).lean();
     if (!result) throw new NotFoundException(`Attendance ${id} not found`);
+    this.eventEmitter.emit(AuditEvent.Log, {
+      module: this.MODULE_NAME,
+      action: AuditAction.DELETE,
+      entityId: id,
+    });
+
     return result;
   }
 

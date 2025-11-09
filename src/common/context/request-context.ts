@@ -1,30 +1,46 @@
+import { Injectable } from '@nestjs/common';
 import { AsyncLocalStorage } from 'async_hooks';
 
-interface ContextStore {
+interface RequestContextData {
   userId?: string;
-  [key: string]: any;
+  email?: string;
+  name?: string;
 }
 
-const asyncLocalStorage = new AsyncLocalStorage<ContextStore>();
+@Injectable()
+export class RequestContextService {
+  private static readonly als = new AsyncLocalStorage<RequestContextData>();
 
-export class RequestContext {
-  static run(callback: () => void) {
-    asyncLocalStorage.run({}, callback);
+  /** Tạo context cho mỗi request */
+  run(callback: () => void) {
+    const store: RequestContextData = {};
+    RequestContextService.als.run(store, callback);
   }
 
-  static set(key: keyof ContextStore, value: any) {
-    const store = asyncLocalStorage.getStore();
-    if (store) {
-      store[key] = value;
-    }
+  /** Đặt giá trị (userId, email, name, ...) */
+  static set(key: keyof RequestContextData, value: any) {
+    const store = RequestContextService.als.getStore();
+    if (store) store[key] = value;
   }
 
-  static get<T = any>(key: keyof ContextStore): T | undefined {
-    const store = asyncLocalStorage.getStore();
-    return store?.[key] as T;
+  /** Lấy giá trị cụ thể */
+  static get<T extends keyof RequestContextData>(
+    key: T,
+  ): RequestContextData[T] | undefined {
+    const store = RequestContextService.als.getStore();
+    return store ? store[key] : undefined;
   }
 
-  static getUserId(): string | undefined {
-    return this.get('userId');
+  /** Hàm tiện dụng */
+  getUserId(): string | undefined {
+    return RequestContextService.get('userId');
+  }
+
+  getUserEmail(): string | undefined {
+    return RequestContextService.get('email');
+  }
+
+  getUserName(): string | undefined {
+    return RequestContextService.get('name');
   }
 }

@@ -4,4 +4,5 @@ export class CreateAuditLogDto {
   entityId?: string;
   timestamp?: Date;
   details?: string;
+  module?: string;
 }
