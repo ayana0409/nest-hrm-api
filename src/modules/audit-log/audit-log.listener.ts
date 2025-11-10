@@ -21,6 +21,7 @@ export class AuditLogListener {
       details: JSON.stringify(payload.data),
       userId: userId,
       module: payload.module,
+      username: this.requestContext.getUsername(),
     });
   }
 }

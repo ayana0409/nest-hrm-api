@@ -3,8 +3,7 @@ import { AsyncLocalStorage } from 'async_hooks';
 
 interface RequestContextData {
   userId?: string;
-  email?: string;
-  name?: string;
+  username?: string;
 }
 
 @Injectable()
@@ -36,11 +35,7 @@ export class RequestContextService {
     return RequestContextService.get('userId');
   }
 
-  getUserEmail(): string | undefined {
-    return RequestContextService.get('email');
-  }
-
-  getUserName(): string | undefined {
-    return RequestContextService.get('name');
+  getUsername(): string | undefined {
+    return RequestContextService.get('username');
   }
 }

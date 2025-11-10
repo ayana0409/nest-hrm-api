@@ -8,6 +8,9 @@ export class AuditLog {
   @Prop({ type: Types.ObjectId, ref: 'User', index: true })
   userId?: Types.ObjectId;
 
+  @Prop()
+  username?: string;
+
   @Prop({ required: true })
   action: string;
 

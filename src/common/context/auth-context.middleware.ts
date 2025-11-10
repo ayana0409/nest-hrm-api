@@ -17,8 +17,7 @@ export class AuthContextMiddleware implements NestMiddleware {
             process.env.JWT_ACCESS_SECRET!,
           );
           RequestContextService.set('userId', decoded.sub || decoded.userId);
-          RequestContextService.set('email', decoded.email);
-          RequestContextService.set('name', decoded.name);
+          RequestContextService.set('username', decoded.username);
         } catch (err) {
           console.warn('Invalid or expired token');
         }

@@ -1,6 +1,7 @@
 import { Model } from 'mongoose';
 import { toDto } from './transformHelper';
 import { PipelineStage } from 'mongoose';
+import { timestamp } from 'rxjs';
 
 export interface PaginationResult<T> {
   items: T[];
@@ -32,7 +33,8 @@ export async function paginate<T>(
     .limit(pageSize)
     .skip(skip)
     .select(selectFields.join(' '))
-    .sort(sort);
+    .sort(sort)
+    .sort({ timestamp: -1 });
 
   if (options?.populate) {
     query = query.populate(options.populate as any);
