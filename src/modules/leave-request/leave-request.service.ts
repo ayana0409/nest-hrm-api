@@ -104,6 +104,10 @@ export class LeaveRequestService {
       },
     });
 
+    pipeline.push({
+      $sort: { startDate: -1 },
+    });
+
     // --- Join các bảng ---
     pipeline.push(
       {

@@ -155,7 +155,7 @@ export class AttendanceService {
     return paginate<AttendanceResponseDto>(
       this.attendanceModel,
       filter,
-      sort,
+      { createdAt: -1 },
       [],
       current,
       pageSize,

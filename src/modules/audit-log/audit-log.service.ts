@@ -6,6 +6,7 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import aqp from 'api-query-params';
 import { RequestContextService } from '@/common/context/request-context';
+import { AuditLogResponseDto } from './dto/audit-log-response.dto';
 
 @Injectable()
 export class AuditLogService {
@@ -24,13 +25,16 @@ export class AuditLogService {
     delete filter.current;
     delete filter.pageSize;
 
-    return paginate<AuditLog>(
+    return paginate<AuditLogResponseDto>(
       this.auditLogModel,
       filter,
       sort,
       [],
       current,
       pageSize,
+      {
+        dtoClass: AuditLogResponseDto,
+      },
     );
   }
 }
