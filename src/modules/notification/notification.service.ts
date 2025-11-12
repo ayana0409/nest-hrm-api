@@ -10,7 +10,7 @@ import {
 import { Employee, EmployeeDocument } from '../employee/schema/employee.schema';
 import { NotificationGateway } from './notification.gateway';
 import { randomUUID } from 'crypto';
-import { NotificationType } from '@/common/enum/notification-type.enum';
+import { NotificationTargetType } from '@/common/enum/notification-type.enum';
 import { paginateAggregate } from '@/common/helpers/paginationHelper';
 import { NotificationResponseDto } from './dto/notification-response.dto';
 
@@ -31,7 +31,7 @@ export class NotificationService {
     current = 1,
     pageSize = 10,
     filter: {
-      targetType?: NotificationType; // "INDIVIDUAL" | "POSITION" | "DEPARTMENT" | "EMPLOYEE"
+      targetType?: NotificationTargetType; // "INDIVIDUAL" | "POSITION" | "DEPARTMENT" | "EMPLOYEE"
       targetId?: string; // ID của target (nếu có)
       userId?: string; // ID user nếu cần lọc riêng
       read?: boolean; // lọc đã đọc/chưa đọc
@@ -94,8 +94,8 @@ export class NotificationService {
 
     // --- Nếu là tin gửi hàng loạt (POSITION/DEPARTMENT) thì gom theo batchKey ---
     if (
-      (filter.targetType === NotificationType.POSITION ||
-        filter.targetType === NotificationType.DEPARTMENT) &&
+      (filter.targetType === NotificationTargetType.POSITION ||
+        filter.targetType === NotificationTargetType.DEPARTMENT) &&
       !filter.userId
     ) {
       pipeline.push({
@@ -190,7 +190,7 @@ export class NotificationService {
       userId: u._id,
       message,
       batchKey,
-      targetType: NotificationType.INDIVIDUAL,
+      targetType: NotificationTargetType.INDIVIDUAL,
     }));
 
     const result = await this.notificationModel.insertMany(notifications);
@@ -210,7 +210,7 @@ export class NotificationService {
       'departmentId',
       departmentIds,
       message,
-      NotificationType.DEPARTMENT,
+      NotificationTargetType.DEPARTMENT,
     );
   }
 
@@ -219,7 +219,7 @@ export class NotificationService {
       'positionId',
       positionIds,
       message,
-      NotificationType.POSITION,
+      NotificationTargetType.POSITION,
     );
   }
 
@@ -227,7 +227,9 @@ export class NotificationService {
     field: 'departmentId' | 'positionId',
     ids: string[],
     message: string,
-    targetType: NotificationType.DEPARTMENT | NotificationType.POSITION,
+    targetType:
+      | NotificationTargetType.DEPARTMENT
+      | NotificationTargetType.POSITION,
   ) {
     if (!ids?.length) return [];
 

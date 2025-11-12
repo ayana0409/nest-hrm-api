@@ -6,7 +6,7 @@ import {
   IsBoolean,
 } from 'class-validator';
 import { Type } from 'class-transformer';
-import { NotificationType } from '@/common/enum/notification-type.enum';
+import { NotificationTargetType } from '@/common/enum/notification-type.enum';
 
 export class PagedNotificationRequestDto {
   @Type(() => Number)
@@ -19,9 +19,9 @@ export class PagedNotificationRequestDto {
   @IsOptional()
   pageSize?: number = 10;
 
-  @IsEnum(NotificationType)
+  @IsEnum(NotificationTargetType)
   @IsOptional()
-  targetType?: NotificationType;
+  targetType?: NotificationTargetType;
 
   @IsMongoId()
   @IsOptional()
