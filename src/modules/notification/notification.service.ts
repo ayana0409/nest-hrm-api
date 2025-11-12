@@ -10,7 +10,10 @@ import {
 import { Employee, EmployeeDocument } from '../employee/schema/employee.schema';
 import { NotificationGateway } from './notification.gateway';
 import { randomUUID } from 'crypto';
-import { NotificationTargetType } from '@/common/enum/notification-type.enum';
+import {
+  NotificationTargetType,
+  NotificationType,
+} from '@/common/enum/notification-type.enum';
 import { paginateAggregate } from '@/common/helpers/paginationHelper';
 import { NotificationResponseDto } from './dto/notification-response.dto';
 
@@ -173,7 +176,11 @@ export class NotificationService {
     return this.update(id, { read: true });
   }
 
-  async sendToEmployees(employeeIds: string[], message: string) {
+  async sendToEmployees(
+    employeeIds: string[],
+    message: string,
+    type?: NotificationType.MESSAGE,
+  ) {
     if (!employeeIds?.length) return [];
 
     const users = await this.userModel
@@ -191,6 +198,7 @@ export class NotificationService {
       message,
       batchKey,
       targetType: NotificationTargetType.INDIVIDUAL,
+      type,
     }));
 
     const result = await this.notificationModel.insertMany(notifications);
