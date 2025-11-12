@@ -10,6 +10,9 @@ export class NotificationResponseDto {
   message: string;
 
   @Expose()
+  type: string;
+
+  @Expose()
   @Transform(({ obj }) => (obj.user ? obj.user.username : null))
   username?: string;
 

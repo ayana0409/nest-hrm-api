@@ -54,7 +54,10 @@ export class NotificationService {
 
     if (filter.targetId)
       match.targetIds = { $in: [new Types.ObjectId(filter.targetId)] };
-    if (filter.userId) {
+    if (
+      filter.userId &&
+      filter.targetType === NotificationTargetType.INDIVIDUAL
+    ) {
       const employeeId = new Types.ObjectId(filter.userId);
 
       const users = await this.userModel.find({ employeeId }, { _id: 1 });
@@ -62,6 +65,12 @@ export class NotificationService {
 
       match.userId = { $in: userIds.length > 0 ? userIds : [] };
     }
+
+    if (
+      filter.userId &&
+      filter.targetType !== NotificationTargetType.INDIVIDUAL
+    )
+      match.userId = new Types.ObjectId(filter.userId);
 
     // only push match if it's not empty
     if (Object.keys(match).length > 0) pipeline.push({ $match: match });
@@ -162,6 +171,7 @@ export class NotificationService {
           batchKey: '$_id.batchKey',
           message: '$_id.message',
           read: 1,
+          type: 1,
           createdAt: 1,
           updatedAt: 1,
           targetType: 1,
@@ -190,6 +200,7 @@ export class NotificationService {
           _id: 1,
           message: 1,
           read: 1,
+          type: 1,
           createdAt: 1,
           updatedAt: 1,
           targetType: 1,
@@ -243,11 +254,7 @@ export class NotificationService {
     return this.update(id, { read: true });
   }
 
-  async sendToEmployees(
-    employeeIds: string[],
-    message: string,
-    type?: NotificationType.MESSAGE,
-  ) {
+  async sendToEmployees(employeeIds: string[], message: string, type?) {
     if (!employeeIds?.length) return [];
 
     const users = await this.userModel
@@ -265,7 +272,7 @@ export class NotificationService {
       message,
       batchKey,
       targetType: NotificationTargetType.INDIVIDUAL,
-      type,
+      type: type ?? NotificationType.MESSAGE,
       read: false,
     }));
 
