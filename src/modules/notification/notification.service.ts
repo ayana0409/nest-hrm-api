@@ -47,9 +47,21 @@ export class NotificationService {
 
     if (filter.targetType) match.targetType = filter.targetType;
     if (filter.read) match.read = filter.read;
-    if (filter.userId) match.userId = new Types.ObjectId(filter.userId);
+    // if (filter.userId) match.userId = new Types.ObjectId(filter.userId);
     if (filter.targetId)
       match.targetIds = { $in: [new Types.ObjectId(filter.targetId)] };
+    if (filter.userId) {
+      const employeeId = new Types.ObjectId(filter.userId);
+
+      const users = await this.userModel.find({ employeeId }, { _id: 1 });
+      const userIds = users.map((u) => u._id);
+
+      if (userIds.length > 0) {
+        match.userId = { $in: userIds };
+      } else {
+        match.userId = { $in: [] };
+      }
+    }
 
     // only push match if it's not empty
     if (Object.keys(match).length > 0) pipeline.push({ $match: match });
