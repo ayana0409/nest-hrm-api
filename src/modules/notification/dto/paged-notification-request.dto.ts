@@ -5,7 +5,7 @@ import {
   IsOptional,
   IsBoolean,
 } from 'class-validator';
-import { Type } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 import { NotificationTargetType } from '@/common/enum/notification-type.enum';
 
 export class PagedNotificationRequestDto {
@@ -33,6 +33,8 @@ export class PagedNotificationRequestDto {
 
   @IsBoolean()
   @IsOptional()
-  @Type(() => Boolean)
+  @Transform(({ value }) =>
+    value === 'true' ? true : value === 'false' ? false : undefined,
+  )
   read?: boolean;
 }

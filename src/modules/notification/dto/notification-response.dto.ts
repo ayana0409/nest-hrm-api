@@ -1,3 +1,4 @@
+import { DateHelper } from '@/common/helpers/dateHelper';
 import { Expose, Transform } from 'class-transformer';
 
 export class NotificationResponseDto {
@@ -9,9 +10,22 @@ export class NotificationResponseDto {
   message: string;
 
   @Expose()
+  @Transform(({ obj }) => (obj.user ? obj.user.username : null))
+  username?: string;
+
+  @Expose()
+  targets?: string;
+
+  @Expose()
+  @Transform(({ obj }) =>
+    obj.createdAt ? DateHelper.format(obj.createdAt) : null,
+  )
   createdAt: string;
 
   @Expose()
+  @Transform(({ obj }) =>
+    obj.updatedAt ? DateHelper.format(obj.updatedAt) : null,
+  )
   updatedAt: string;
 
   @Expose()
