@@ -387,6 +387,31 @@ export class AttendanceService {
     });
   }
 
+  async caculateOnboard(start: Date, end: Date) {
+    const checkOut = await this.attendanceModel
+      .find({
+        checkIn: { $gte: start, $lte: end },
+        status: AttendanceStatus.CheckOut,
+      })
+      .countDocuments();
+
+    const onboard = await this.attendanceModel
+      .find({
+        checkIn: { $gte: start, $lte: end },
+        status: { $in: [AttendanceStatus.Late, AttendanceStatus.OnTime] },
+      })
+      .countDocuments();
+
+    const halfDay = await this.attendanceModel
+      .find({
+        checkIn: { $gte: start, $lte: end },
+        status: AttendanceStatus.HalfDay,
+      })
+      .countDocuments();
+
+    return { checkOut, halfDay, onboard };
+  }
+
   private async validateEmployee(employeeId: Types.ObjectId) {
     const exists = await this.employeeModel.exists({ _id: employeeId });
     if (!exists)
