@@ -235,4 +235,12 @@ export class LeaveRequestService {
 
     return result;
   }
+
+  async countRequest(date: Date, status: LeaveRequestStatus) {
+    return await this.leaveModel.countDocuments({
+      status,
+      startDate: { $lte: date },
+      endDate: { $gte: date },
+    });
+  }
 }
