@@ -19,6 +19,7 @@ import { AuditLogModule } from './modules/audit-log/audit-log.module';
 import { AuthContextMiddleware } from './common/context/auth-context.middleware';
 import { RequestContextService } from './common/context/request-context';
 import { RequestContextModule } from './common/context/request-context.module';
+import { DashboardModule } from './modules/dashboard/dashboard.module';
 
 @Module({
   imports: [
@@ -73,6 +74,7 @@ import { RequestContextModule } from './common/context/request-context.module';
     EventEmitterModule.forRoot(),
     AuditLogModule,
     RequestContextModule,
+    DashboardModule,
   ],
   controllers: [AppController],
   providers: [AppService],
