@@ -39,5 +39,6 @@ import { CloudinaryService } from '@/services/cloud/cloundinary.service';
   ],
   controllers: [EmployeeController],
   providers: [EmployeeService, EmpFaceService, CloudinaryService],
+  exports: [EmployeeService],
 })
 export class EmployeeModule {}
