@@ -25,6 +25,7 @@ import { EmpFaceService } from '@/services/face/emp-face.service';
 import { CloudinaryService } from '@/services/cloud/cloundinary.service';
 import { resizeImageToRatio } from '@/common/helpers/image-helper';
 import { AuditAction, AuditEvent } from '@/common/event/audit-log.event';
+import { EmployeeStatusEnum } from '@/common/enum/employee-status..enum';
 @Injectable()
 export class EmployeeService {
   private readonly MODULE_NAME = 'employee';
@@ -217,5 +218,9 @@ export class EmployeeService {
     });
 
     return toDto(EmployeeResponseDto, employee);
+  }
+
+  async countEmp(status: EmployeeStatusEnum) {
+    return await this.employeeModel.find({ status }).countDocuments();
   }
 }
